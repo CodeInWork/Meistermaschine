@@ -19,6 +19,13 @@ enum class Led1State : uint8_t
     Blinking
 };
 
+enum class AppState : uint8_t
+{
+    Idle,
+    Active,
+    Error
+};
+
 class App {
 public:
     App(MCP23017Driver& driver, MCP23017Buttons& buttons);
@@ -27,7 +34,13 @@ public:
     void update(uint32_t now);
 
 private:
-    void handleButtonEvents(const ButtonEvents& ev);
+    void handleButtonEvents(const ButtonEvents& ev, uint32_t now);
+
+    void updateAppState(uint32_t now);
+    void updateIdleState(uint32_t now);
+    void updateActiveState(uint32_t now);
+    void updateErrorState(uint32_t now);
+
     void updateLed1State(uint32_t now);
     void updateOutputs();
 
@@ -41,7 +54,9 @@ private:
     uint16_t _ledState;
     bool _outputsDirty;
 
+    AppState _appState;
     Led1State _led1State;
+
     uint32_t _lastBlinkMs;
 
     static constexpr uint32_t BLINK_INTERVAL_MS = 250;

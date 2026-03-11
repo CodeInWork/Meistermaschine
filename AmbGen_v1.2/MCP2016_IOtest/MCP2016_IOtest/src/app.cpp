@@ -5,8 +5,11 @@ App::App(MCP23017Driver& driver, MCP23017Buttons& buttons)
       _buttons(buttons),
       _ledState(0),
       _outputsDirty(true),
+      _appState(AppState::Idle),
       _led1State(Led1State::Off),
-      _lastBlinkMs(0) {}
+      _lastBlinkMs(0)
+{
+}
 
 bool App::begin()
 {
@@ -20,18 +23,26 @@ bool App::begin()
 
     _buttons.setButtonMask(buttonMask);
 
-    uint16_t direction = 0xFFFF;
+    // Alle Pins zunächst als Input
+    uint16_t directionMask = 0xFFFF;
 
-    direction &= ~ledMask;
+    // LED-Pins als Output
+    directionMask &= static_cast<uint16_t>(~ledMask);
 
-    if(!_driver.setDirection(direction))
+    if (!_driver.setDirection(directionMask)) {
         return false;
+    }
 
-    if(!_driver.setPullups(buttonMask))
+    // Pull-Ups nur für Taster-Pins
+    if (!_driver.setPullups(buttonMask)) {
         return false;
+    }
 
     _ledState = 0;
     _outputsDirty = true;
+    _appState = AppState::Idle;
+    _led1State = Led1State::Off;
+    _lastBlinkMs = 0;
 
     updateOutputs();
 
@@ -43,21 +54,39 @@ void App::update(uint32_t now)
     const ButtonEvents ev = _buttons.update();
 
     if (ev.valid) {
-        handleButtonEvents(ev);
+        handleButtonEvents(ev, now);
     }
 
-    updateLed1State(now);
+    updateAppState(now);
     updateOutputs();
 }
 
-void App::handleButtonEvents(const ButtonEvents& ev)
+void App::handleButtonEvents(const ButtonEvents& ev, uint32_t now)
 {
+    // BTN_0 schaltet zwischen Idle und Active um
     if (ev.pressed & AppPins::BTN_0) {
-        toggleLed(AppPins::LED_0);
-        Serial.println("BTN_0 pressed -> toggle LED_0");
+        switch (_appState) {
+            case AppState::Idle:
+                _appState = AppState::Active;
+                Serial.println("AppState -> Active");
+                break;
+
+            case AppState::Active:
+                _appState = AppState::Idle;
+                Serial.println("AppState -> Idle");
+                break;
+
+            case AppState::Error:
+                // optional: aus Error heraus resetten
+                _appState = AppState::Idle;
+                _led1State = Led1State::Off;
+                Serial.println("AppState -> Idle (from Error)");
+                break;
+        }
     }
-    // state machine for LED_1: Off -> On -> Blinking -> Off -> ...
-    if (ev.pressed & AppPins::BTN_1) {
+
+    // BTN_1 steuert LED_1-Zustände, aber nur wenn wir nicht im Error sind
+    if ((ev.pressed & AppPins::BTN_1) && (_appState != AppState::Error)) {
         switch (_led1State) {
             case Led1State::Off:
                 _led1State = Led1State::On;
@@ -66,7 +95,8 @@ void App::handleButtonEvents(const ButtonEvents& ev)
 
             case Led1State::On:
                 _led1State = Led1State::Blinking;
-                _lastBlinkMs = millis();
+                _lastBlinkMs = now;
+                setLed(AppPins::LED_1, true);
                 Serial.println("LED_1 state -> Blinking");
                 break;
 
@@ -76,6 +106,52 @@ void App::handleButtonEvents(const ButtonEvents& ev)
                 break;
         }
     }
+}
+
+void App::updateAppState(uint32_t now)
+{
+    switch (_appState) {
+        case AppState::Idle:
+            updateIdleState(now);
+            break;
+
+        case AppState::Active:
+            updateActiveState(now);
+            break;
+
+        case AppState::Error:
+            updateErrorState(now);
+            break;
+    }
+}
+
+void App::updateIdleState(uint32_t now)
+{
+    (void)now;
+
+    // In Idle ist LED_0 aus
+    setLed(AppPins::LED_0, false);
+
+    // LED_1 folgt ihrer eigenen kleinen State Machine
+    updateLed1State(now);
+}
+
+void App::updateActiveState(uint32_t now)
+{
+    // In Active ist LED_0 an
+    setLed(AppPins::LED_0, true);
+
+    // LED_1 folgt ebenfalls ihrer State Machine
+    updateLed1State(now);
+}
+
+void App::updateErrorState(uint32_t now)
+{
+    (void)now;
+
+    // Im Fehlerfall alles aus
+    setLed(AppPins::LED_0, false);
+    setLed(AppPins::LED_1, false);
 }
 
 void App::updateLed1State(uint32_t now)
@@ -108,6 +184,7 @@ void App::updateOutputs()
         _outputsDirty = false;
     } else {
         Serial.println("Output write failed");
+        _appState = AppState::Error;
     }
 }
 
