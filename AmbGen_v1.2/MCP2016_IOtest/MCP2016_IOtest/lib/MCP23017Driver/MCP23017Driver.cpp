@@ -34,8 +34,8 @@ bool MCP23017Driver::readRegister(uint8_t reg, uint8_t& value) {
 bool MCP23017Driver::writeRegisterPair(uint8_t firstReg, uint16_t value) {
     Wire.beginTransmission(_address);
     Wire.write(firstReg);
-    Wire.write(MCP::lowByte(value));
-    Wire.write(MCP::highByte(value));
+    Wire.write(MCP::lowByte16(value));
+    Wire.write(MCP::highByte16(value));
     return Wire.endTransmission() == 0;
 }
 

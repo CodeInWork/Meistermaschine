@@ -41,12 +41,12 @@ namespace MCP {
         return static_cast<uint16_t>(1u << pin);
     }
 
-    constexpr uint8_t lowByte(uint16_t value) noexcept
+    constexpr uint8_t lowByte16(uint16_t value) noexcept    //name conflict with Arduino macro, hence the 16 suffix
     {
-        return static_cast<uint8_t>(value & 0x00FFu);
+        return static_cast<uint8_t>(value & 0x00FFu);       //name conflict with Arduino macro, hence the 16 suffix
     }
 
-    constexpr uint8_t highByte(uint16_t value) noexcept {
+    constexpr uint8_t highByte16(uint16_t value) noexcept {
         return static_cast<uint8_t>((value >> 8) & 0x00FFu);
     }
 
