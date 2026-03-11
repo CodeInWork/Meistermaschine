@@ -1,0 +1,239 @@
+#include <Arduino.h>
+#include <Wire.h>
+#include <Adafruit_MCP23X17.h>
+
+Adafruit_MCP23X17 mcp;
+
+// Adafruit-Zählweise:
+// 0-7   = GPA0-GPA7
+// 8-15  = GPB0-GPB7
+
+namespace MCP {
+    constexpr uint8_t ADDRESS = 0x20;
+
+    constexpr uint8_t GPA0 = 0;
+    constexpr uint8_t GPA1 = 1;
+    constexpr uint8_t GPA2 = 2;
+    constexpr uint8_t GPA3 = 3;
+    constexpr uint8_t GPA4 = 4;
+    constexpr uint8_t GPA5 = 5;
+    constexpr uint8_t GPA6 = 6;
+    constexpr uint8_t GPA7 = 7;
+
+    constexpr uint8_t GPB0 = 8;
+    constexpr uint8_t GPB1 = 9;
+    constexpr uint8_t GPB2 = 10;
+    constexpr uint8_t GPB3 = 11;
+    constexpr uint8_t GPB4 = 12;
+    constexpr uint8_t GPB5 = 13;
+    constexpr uint8_t GPB6 = 14;
+    constexpr uint8_t GPB7 = 15;
+
+    // Registeradressen im BANK=0 Modus
+    constexpr uint8_t IODIRA = 0x00;
+    constexpr uint8_t IODIRB = 0x01;
+    constexpr uint8_t GPPUA  = 0x0C;
+    constexpr uint8_t GPPUB  = 0x0D;
+    constexpr uint8_t GPIOA  = 0x12;
+    constexpr uint8_t GPIOB  = 0x13;
+}
+
+namespace Buttons {
+    constexpr uint16_t ALL = 0xFFFF;
+
+    constexpr uint16_t BTN_0  = (1u << MCP::GPA0);
+    constexpr uint16_t BTN_1  = (1u << MCP::GPA1);
+    constexpr uint16_t BTN_2  = (1u << MCP::GPA2);
+    constexpr uint16_t BTN_3  = (1u << MCP::GPA3);
+    constexpr uint16_t BTN_4  = (1u << MCP::GPA4);
+    constexpr uint16_t BTN_5  = (1u << MCP::GPA5);
+    constexpr uint16_t BTN_6  = (1u << MCP::GPA6);
+    constexpr uint16_t BTN_7  = (1u << MCP::GPA7);
+    constexpr uint16_t BTN_8  = (1u << MCP::GPB0);
+    constexpr uint16_t BTN_9  = (1u << MCP::GPB1);
+    constexpr uint16_t BTN_10 = (1u << MCP::GPB2);
+    constexpr uint16_t BTN_11 = (1u << MCP::GPB3);
+    constexpr uint16_t BTN_12 = (1u << MCP::GPB4);
+    constexpr uint16_t BTN_13 = (1u << MCP::GPB5);
+    constexpr uint16_t BTN_14 = (1u << MCP::GPB6);
+    constexpr uint16_t BTN_15 = (1u << MCP::GPB7);
+}
+
+struct DebounceState {
+    uint16_t raw_state        = 0xFFFF;  // ungültig / offen wegen Pull-Ups
+    uint16_t stable_state     = 0xFFFF;  // entprellter Zustand
+    uint32_t last_change_ms   = 0;
+};
+
+DebounceState buttons;
+
+constexpr uint32_t POLL_INTERVAL_MS   = 5;
+constexpr uint32_t DEBOUNCE_TIME_MS   = 20;
+
+uint32_t last_poll_ms = 0;
+
+bool writeRegister(uint8_t reg, uint8_t value) {
+    Wire.beginTransmission(MCP::ADDRESS);
+    Wire.write(reg);
+    Wire.write(value);
+    return Wire.endTransmission() == 0;
+}
+
+bool readRegister(uint8_t reg, uint8_t &value) {
+    Wire.beginTransmission(MCP::ADDRESS);
+    Wire.write(reg);
+    if (Wire.endTransmission(false) != 0) {   // repeated start
+        return false;
+    }
+
+    if (Wire.requestFrom(MCP::ADDRESS, static_cast<uint8_t>(1)) != 1) {
+        return false;
+    }
+
+    value = Wire.read();
+    return true;
+}
+
+bool initMCPInputsPullups() {
+    // alle 16 Pins als Input
+    if (!writeRegister(MCP::IODIRA, 0xFF)) return false;
+    if (!writeRegister(MCP::IODIRB, 0xFF)) return false;
+
+    // interne Pull-Ups für alle 16 Pins aktivieren
+    if (!writeRegister(MCP::GPPUA, 0xFF)) return false;
+    if (!writeRegister(MCP::GPPUB, 0xFF)) return false;
+
+    return true;
+}
+
+bool readButtonsRaw(uint16_t &state) {
+    uint8_t gpioa = 0;
+    uint8_t gpiob = 0;
+
+    if (!readRegister(MCP::GPIOA, gpioa)) return false;
+    if (!readRegister(MCP::GPIOB, gpiob)) return false;
+
+    state = static_cast<uint16_t>(gpioa)
+          | (static_cast<uint16_t>(gpiob) << 8);
+
+    return true;
+}
+
+void printMask(const char* label, uint16_t mask) {
+    Serial.print(label);
+    Serial.print(": 0b");
+    for (int8_t i = 15; i >= 0; --i) {
+        Serial.print((mask & (1u << i)) ? '1' : '0');
+    }
+    Serial.println();
+}
+
+void handlePressedEdges(uint16_t pressed_edges) {
+    if (pressed_edges == 0) return;
+
+    printMask("Pressed", pressed_edges);
+
+    if (pressed_edges & Buttons::BTN_0) {
+        Serial.println("BTN_0 pressed");
+    }
+    if (pressed_edges & Buttons::BTN_1) {
+        Serial.println("BTN_1 pressed");
+    }
+    if (pressed_edges & Buttons::BTN_8) {
+        Serial.println("BTN_8 pressed");
+    }
+}
+
+void handleReleasedEdges(uint16_t released_edges) {
+    if (released_edges == 0) return;
+
+    printMask("Released", released_edges);
+
+    if (released_edges & Buttons::BTN_0) {
+        Serial.println("BTN_0 released");
+    }
+    if (released_edges & Buttons::BTN_1) {
+        Serial.println("BTN_1 released");
+    }
+    if (released_edges & Buttons::BTN_8) {
+        Serial.println("BTN_8 released");
+    }
+}
+
+void updateButtons() {
+    const uint32_t now = millis();
+
+    if ((now - last_poll_ms) < POLL_INTERVAL_MS) {
+        return;
+    }
+    last_poll_ms = now;
+
+    uint16_t new_raw = 0;
+    if (!readButtonsRaw(new_raw)) {
+        Serial.println("Read error");
+        return;
+    }
+
+    // Änderung im Rohsignal erkannt?
+    if (new_raw != buttons.raw_state) {
+        buttons.raw_state = new_raw;
+        buttons.last_change_ms = now;
+    }
+
+    // Erst nach stabiler Zeit übernehmen
+    if ((now - buttons.last_change_ms) < DEBOUNCE_TIME_MS) {
+        return;
+    }
+
+    if (buttons.stable_state != buttons.raw_state) {
+        const uint16_t old_stable = buttons.stable_state;
+        const uint16_t new_stable = buttons.raw_state;
+
+        buttons.stable_state = new_stable;
+
+        // wegen Pull-Up gilt:
+        // HIGH = offen, LOW = gedrückt
+        const uint16_t old_pressed = static_cast<uint16_t>(~old_stable);
+        const uint16_t new_pressed = static_cast<uint16_t>(~new_stable);
+
+        const uint16_t pressed_edges  = static_cast<uint16_t>( new_pressed & ~old_pressed);
+        const uint16_t released_edges = static_cast<uint16_t>(~new_pressed &  old_pressed);
+
+        handlePressedEdges(pressed_edges);
+        handleReleasedEdges(released_edges);
+    }
+}
+
+void setup() {
+    Serial.begin(9600);
+    delay(300);
+    Serial.println("Start");
+
+    Wire.begin();
+
+    if (!initMCPInputsPullups()) {
+        Serial.println("MCP init failed");
+        while (true) {
+            delay(1000);
+        }
+    }
+
+    uint16_t initial_state = 0;
+    if (!readButtonsRaw(initial_state)) {
+        Serial.println("Initial read failed");
+        while (true) {
+            delay(1000);
+        }
+    }
+
+    buttons.raw_state      = initial_state;
+    buttons.stable_state   = initial_state;
+    buttons.last_change_ms = millis();
+
+    printMask("Initial raw", initial_state);
+    Serial.println("Ready");
+}
+
+void loop() {
+    updateButtons();
+}
