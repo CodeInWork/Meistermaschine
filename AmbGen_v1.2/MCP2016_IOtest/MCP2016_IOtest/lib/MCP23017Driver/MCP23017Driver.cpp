@@ -93,8 +93,8 @@ uint16_t MCP23017Driver::outputState() const {
     return _outputState;
 }
 
-bool MCP23017Driver::setPinHigh(uint8_t pin) {
-    if (pin > 15) {
+bool MCP23017Driver::setPinHigh(MCPPin pin) {
+    if (static_cast<uint8_t>(pin) > 15) {
         return false;
     }
 
@@ -102,8 +102,8 @@ bool MCP23017Driver::setPinHigh(uint8_t pin) {
     return writeOutputsLatched(_outputState);
 }
 
-bool MCP23017Driver::setPinLow(uint8_t pin) {
-    if (pin > 15) {
+bool MCP23017Driver::setPinLow(MCPPin pin) {
+    if (static_cast<uint8_t>(pin) > 15) {
         return false;
     }
 
@@ -111,6 +111,6 @@ bool MCP23017Driver::setPinLow(uint8_t pin) {
     return writeOutputsLatched(_outputState);
 }
 
-bool MCP23017Driver::writePin(uint8_t pin, bool level) {
+bool MCP23017Driver::writePin(MCPPin pin, bool level) {
     return level ? setPinHigh(pin) : setPinLow(pin);
 }

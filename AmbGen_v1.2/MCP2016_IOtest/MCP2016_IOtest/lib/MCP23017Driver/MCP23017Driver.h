@@ -4,27 +4,28 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+enum class MCPPin : uint8_t {
+    GPA0 = 0,
+    GPA1 = 1,
+    GPA2 = 2,
+    GPA3 = 3,
+    GPA4 = 4,
+    GPA5 = 5,
+    GPA6 = 6,
+    GPA7 = 7,
+
+    GPB0 = 8,
+    GPB1 = 9,
+    GPB2 = 10,
+    GPB3 = 11,
+    GPB4 = 12,
+    GPB5 = 13,
+    GPB6 = 14,
+    GPB7 = 15
+};
 
 namespace MCP {
     constexpr uint8_t DEFAULT_ADDRESS = 0x20;
-
-    constexpr uint8_t GPA0 = 0;
-    constexpr uint8_t GPA1 = 1;
-    constexpr uint8_t GPA2 = 2;
-    constexpr uint8_t GPA3 = 3;
-    constexpr uint8_t GPA4 = 4;
-    constexpr uint8_t GPA5 = 5;
-    constexpr uint8_t GPA6 = 6;
-    constexpr uint8_t GPA7 = 7;
-
-    constexpr uint8_t GPB0 = 8;
-    constexpr uint8_t GPB1 = 9;
-    constexpr uint8_t GPB2 = 10;
-    constexpr uint8_t GPB3 = 11;
-    constexpr uint8_t GPB4 = 12;
-    constexpr uint8_t GPB5 = 13;
-    constexpr uint8_t GPB6 = 14;
-    constexpr uint8_t GPB7 = 15;
 
     // BANK = 0
     constexpr uint8_t IODIRA = 0x00;
@@ -36,9 +37,9 @@ namespace MCP {
     constexpr uint8_t OLATA  = 0x14;
     constexpr uint8_t OLATB  = 0x15;
     
-    constexpr uint16_t bitMask(uint8_t pin) noexcept
+    constexpr uint16_t bitMask(MCPPin pin) noexcept
     {
-        return static_cast<uint16_t>(1u << pin);
+        return static_cast<uint16_t>(1u << static_cast<uint8_t>(pin));
     }
 
     constexpr uint8_t lowByte16(uint16_t value) noexcept    //name conflict with Arduino macro, hence the 16 suffix
@@ -50,7 +51,7 @@ namespace MCP {
         return static_cast<uint8_t>((value >> 8) & 0x00FFu);
     }
 
-    constexpr bool bitIsSet(uint16_t value, uint8_t pin) noexcept {
+    constexpr bool bitIsSet(uint16_t value, MCPPin pin) noexcept {
         return (value & bitMask(pin)) != 0;
     }
 }
@@ -79,9 +80,9 @@ public:
     bool setOutputState(uint16_t value);
     uint16_t outputState() const;
 
-    bool setPinHigh(uint8_t pin);
-    bool setPinLow(uint8_t pin);
-    bool writePin(uint8_t pin, bool level);
+    bool setPinHigh(MCPPin pin);
+    bool setPinLow(MCPPin pin);
+    bool writePin(MCPPin pin, bool level);
 
 private:
     uint8_t _address;
