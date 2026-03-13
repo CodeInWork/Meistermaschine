@@ -19,7 +19,15 @@ public:
 private:
     void handleButtonEvents(const ButtonEvents& ev);
     void updateVolume();
-    void requestTrack(uint8_t trackNumber);
+    void requestButton(uint8_t buttonId);
+    inline bool hasActiveButton() const
+    {
+        return _currentButtonId != 255;
+    }
+    inline uint8_t currentButton() const
+    {
+        return _currentButtonId;
+    }
 
 private:
     AudioPlayer _audioPlayer;
@@ -28,7 +36,7 @@ private:
     LocalButtons _buttons;
     VolumeService _volume;
 
-    uint8_t _currentTrack;
+    uint8_t _currentButtonId;
     uint8_t _currentVolume;
     bool _playing;
 };

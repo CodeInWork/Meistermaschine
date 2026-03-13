@@ -1,5 +1,6 @@
 #include "app.h"
 
+
 namespace AppHw
 {
     void initSpiChipSelects()
@@ -21,7 +22,7 @@ App::App()
       _display(),
       _buttons(),
       _volume(),
-      _currentTrack(0),
+      _currentButtonId(255),
       _currentVolume(20),
       _playing(false)
 {
@@ -70,13 +71,11 @@ void App::update(uint32_t now)
 
 void App::handleButtonEvents(const ButtonEvents& ev)
 {
-    if (ev.pressed & LocalButtonMask::BTN_1) {
-        requestTrack(1);
-    }
+    if (ev.pressed & LocalButtonMask::BTN_1)
+        requestButton(0);
 
-    if (ev.pressed & LocalButtonMask::BTN_2) {
-        requestTrack(2);
-    }
+    if (ev.pressed & LocalButtonMask::BTN_2) 
+        requestButton(1);
 }
 
 void App::updateVolume()
@@ -88,22 +87,26 @@ void App::updateVolume()
     }
 }
 
-void App::requestTrack(uint8_t trackNumber)
+void App::requestButton(uint8_t buttonId)
 {
-    if (trackNumber == _currentTrack) {
+    if (buttonId == _currentButtonId) {
         return;
     }
 
-    char fileName[22] = {0};
+    TrackLibrary::Playlist playlist;
 
-    if (!_trackLibrary.getTrackFileName(trackNumber, fileName, sizeof(fileName))) {
-        Serial.println("Track not found");
+    if (!_trackLibrary.loadPlaylist(buttonId, playlist)) {
+        Serial.println(F("No playlist for button"));
         return;
     }
 
-    if (_audioPlayer.playFile(fileName)) {
-        _currentTrack = trackNumber;
+    if (playlist.trackCount == 0) {
+        return;
+    }
+
+    if (_audioPlayer.playFile(playlist.tracks[0])) {
+        _currentButtonId = buttonId;
         _playing = true;
-        _display.showTrackName(fileName);
+        _display.showTrackName(playlist.tracks[0]);
     }
 }

@@ -7,17 +7,33 @@
 class TrackLibrary
 {
 public:
+    static constexpr const char* REGISTRY_FILE = "/registry.mms";
+    static constexpr uint8_t MAX_PLAYLIST_TRACKS = 8;
+    static constexpr uint8_t BUTTON_ID_LEN = 2;
+    static constexpr uint8_t MAX_FILENAME_LEN = 24;
+    static constexpr uint8_t MAX_LINE_LEN = MAX_FILENAME_LEN + BUTTON_ID_LEN + 2; // 1 for separator, 1 for null terminator
+
+    struct Playlist
+    {
+        uint8_t buttonId = 0;
+        uint8_t trackCount = 0;
+        char tracks[MAX_PLAYLIST_TRACKS][MAX_FILENAME_LEN] = {{0}};
+    };
+
+public:
     TrackLibrary();
 
     bool begin();
-    bool getTrackFileName(uint8_t trackNumber, char* outName, size_t outSize);
+    bool loadPlaylist(uint8_t buttonId, Playlist& playlist) const;
+    bool hasTrack(uint8_t buttonId) const;
 
 private:
-    uint8_t countDigits(uint8_t number) const;
-    bool matchTrackPrefix(const char* fileName, uint8_t trackNumber) const;
+    bool parseLine(const char* line, uint8_t& buttonId, char* fileName, size_t fileNameSize) const;
+    bool isDigit(char c) const;
+    void clearPlaylist(Playlist& playlist) const;
 
 private:
-    File _root;
+    bool _initialized;
 };
 
 #endif
