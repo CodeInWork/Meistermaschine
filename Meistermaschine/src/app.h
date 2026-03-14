@@ -5,7 +5,7 @@
 #include "AudioPlayer.h"
 #include "TrackLibrary.h"
 #include "DisplayService.h"
-#include "LocalButtons.h"
+#include "LocalButtons/LocalButtons.h"
 #include "VolumeService.h"
 
 class App
