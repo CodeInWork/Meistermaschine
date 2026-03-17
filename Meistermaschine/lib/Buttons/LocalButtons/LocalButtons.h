@@ -2,23 +2,20 @@
 #define LOCAL_BUTTONS_H
 
 #include <Arduino.h>
+#include "ButtonUtils.h"
+#include "ButtonEvents.h"
 
-namespace LocalButtonPins {
-    constexpr uint8_t BTN_1 = 5;
-    constexpr uint8_t BTN_2 = 6;
+namespace LocalButtonPins
+{
+    static constexpr uint8_t BTN_1 = 5;
+    static constexpr uint8_t BTN_2 = 6;
 }
 
-namespace LocalButtonMask {
-    constexpr uint32_t BTN_1 = (1UL << 0);
-    constexpr uint32_t BTN_2 = (1UL << 1);
+namespace LocalButtonIds
+{
+    static constexpr ButtonLayout::ButtonId BTN_1 = 0;
+    static constexpr ButtonLayout::ButtonId BTN_2 = 1;
 }
-
-struct ButtonEvents {
-    uint32_t pressed = 0;
-    uint32_t released = 0;
-    uint32_t held = 0;
-    bool valid = false;
-};
 
 class LocalButtons
 {
@@ -29,8 +26,12 @@ public:
     ButtonEvents update();
 
 private:
-    uint32_t _stableState;
-    uint32_t _rawState;
+    ButtonLayout::ButtonMask readRawMask() const;
+
+private:
+    ButtonLayout::ButtonMask _stableState;
+    ButtonLayout::ButtonMask _rawState;
+
     uint32_t _lastPollMs;
     uint32_t _lastChangeMs;
 

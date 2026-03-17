@@ -15,23 +15,34 @@ bool LocalButtons::begin()
     return true;
 }
 
+ButtonLayout::ButtonMask LocalButtons::readRawMask() const
+{
+    ButtonLayout::ButtonMask mask = 0;
+
+    if (digitalRead(LocalButtonPins::BTN_1)) {
+        mask |= ButtonLayout::ID2Mask(LocalButtonIds::BTN_1);
+    }
+
+    if (digitalRead(LocalButtonPins::BTN_2)) {
+        mask |= ButtonLayout::ID2Mask(LocalButtonIds::BTN_2);
+    }
+
+    return mask;
+}
+
 ButtonEvents LocalButtons::update()
 {
     ButtonEvents ev{};
+
     const uint32_t now = millis();
 
     if ((now - _lastPollMs) < POLL_MS) {
         return ev;
     }
+
     _lastPollMs = now;
 
-    uint32_t newRaw = 0;
-    if (digitalRead(LocalButtonPins::BTN_1)) {
-        newRaw |= LocalButtonMask::BTN_1;
-    }
-    if (digitalRead(LocalButtonPins::BTN_2)) {
-        newRaw |= LocalButtonMask::BTN_2;
-    }
+    const ButtonLayout::ButtonMask newRaw = readRawMask();
 
     if (newRaw != _rawState) {
         _rawState = newRaw;
@@ -44,13 +55,14 @@ ButtonEvents LocalButtons::update()
     }
 
     if (_stableState != _rawState) {
-        const uint32_t oldState = _stableState;
+        const ButtonLayout::ButtonMask oldState = _stableState;
         _stableState = _rawState;
 
-        ev.pressed = _stableState & ~oldState;
+        ev.pressed  = _stableState & ~oldState;
         ev.released = oldState & ~_stableState;
-        ev.held = _stableState;
-        ev.valid = true;
+        ev.held     = _stableState;
+        ev.valid    = true;
+
         return ev;
     }
 
