@@ -5,8 +5,10 @@
 #include "AudioPlayer.h"
 #include "TrackLibrary.h"
 #include "DisplayService.h"
-#include "LocalButtons/LocalButtons.h"
+#include "LocalButtons\LocalButtons.h"
 #include "VolumeService.h"
+#include "ButtonUtils.h"
+#include "ButtonEvents.h"
 
 class App
 {
@@ -19,12 +21,17 @@ public:
 private:
     void handleButtonEvents(const ButtonEvents& ev);
     void updateVolume();
-    void requestButton(uint8_t buttonId);
+    void updatePlayback();
+
+    void requestButton(ButtonLayout::ButtonId buttonId);
+    bool startCurrentTrack();
+
     inline bool hasActiveButton() const
     {
-        return _currentButtonId != 255;
+        return _currentButtonId != ButtonLayout::NO_BUTTON;
     }
-    inline uint8_t currentButton() const
+
+    inline ButtonLayout::ButtonId currentButton() const
     {
         return _currentButtonId;
     }
@@ -36,9 +43,12 @@ private:
     LocalButtons _buttons;
     VolumeService _volume;
 
-    uint8_t _currentButtonId;
+    ButtonLayout::ButtonId _currentButtonId;
     uint8_t _currentVolume;
     bool _playing;
+
+    TrackLibrary::Playlist _currentPlaylist;
+    uint8_t _currentPlaylistIndex;
 };
 
 #endif

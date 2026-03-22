@@ -7,7 +7,7 @@
 class TrackLibrary
 {
 public:
-    static constexpr const char* REGISTRY_FILE = "/registry.mms";
+    static constexpr const char* REGISTRY_FILE = "registry.mms";
     static constexpr uint8_t MAX_PLAYLIST_TRACKS = 8;
     static constexpr uint8_t BUTTON_ID_LEN = 2;
     static constexpr uint8_t MAX_FILENAME_LEN = 24;

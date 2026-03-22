@@ -8,7 +8,6 @@ TrackLibrary::TrackLibrary()
 
 bool TrackLibrary::begin()
 {
-    // Alle SPI-Teilnehmer sicher deselektieren
     digitalWrite(AudioPins::CS, HIGH);
     digitalWrite(AudioPins::DCS, HIGH);
     digitalWrite(AudioPins::CARDCS, HIGH);
@@ -18,15 +17,24 @@ bool TrackLibrary::begin()
         return false;
     }
 
+    Serial.println(F("SD initialized"));
+
+    Serial.print(F("Looking for: "));
+    Serial.println(REGISTRY_FILE);
+
+    Serial.print(F("SD.exists = "));
+    Serial.println(SD.exists(REGISTRY_FILE));
+
     File registry = SD.open(REGISTRY_FILE);
     if (!registry) {
         Serial.println(F("Registry file not found"));
         return false;
     }
 
+    Serial.println(F("Registry file found"));
     registry.close();
-    _initialized = true;
 
+    _initialized = true;
     Serial.println(F("TrackLibrary ready"));
     return true;
 }
@@ -62,6 +70,9 @@ bool TrackLibrary::loadPlaylist(uint8_t requestedButtonId, Playlist& playlist) c
 
                 if (parseLine(line, parsedButtonId, fileName, sizeof(fileName))) {
                     if (parsedButtonId == requestedButtonId) {
+                        // for debugging
+                        Serial.print(F("Matched line for button: "));
+                        Serial.println(parsedButtonId);
                         if (playlist.trackCount < MAX_PLAYLIST_TRACKS) {
                             strncpy(playlist.tracks[playlist.trackCount], fileName, MAX_FILENAME_LEN - 1);
                             playlist.tracks[playlist.trackCount][MAX_FILENAME_LEN - 1] = '\0';

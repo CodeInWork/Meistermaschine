@@ -10,8 +10,8 @@ LocalButtons::LocalButtons()
 
 bool LocalButtons::begin()
 {
-    pinMode(LocalButtonPins::BTN_1, INPUT);
-    pinMode(LocalButtonPins::BTN_2, INPUT);
+    pinMode(LocalButtonPins::BTN_1, INPUT_PULLUP);
+    pinMode(LocalButtonPins::BTN_2, INPUT_PULLUP);
     return true;
 }
 
@@ -19,11 +19,11 @@ ButtonLayout::ButtonMask LocalButtons::readRawMask() const
 {
     ButtonLayout::ButtonMask mask = 0;
 
-    if (digitalRead(LocalButtonPins::BTN_1)) {
+    if (!digitalRead(LocalButtonPins::BTN_1)) {
         mask |= ButtonLayout::ID2Mask(LocalButtonIds::BTN_1);
     }
 
-    if (digitalRead(LocalButtonPins::BTN_2)) {
+    if (!digitalRead(LocalButtonPins::BTN_2)) {
         mask |= ButtonLayout::ID2Mask(LocalButtonIds::BTN_2);
     }
 

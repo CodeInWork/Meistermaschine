@@ -1,7 +1,8 @@
 #include "DisplayService.h"
+#include "HardwareConfig.h"
 
 DisplayService::DisplayService()
-    : _lcd(0x27, 16, 2)
+    : _lcd(I2CAddresses::LCD, 16, 2)
 {
 }
 
