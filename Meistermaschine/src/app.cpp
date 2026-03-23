@@ -100,6 +100,18 @@ void App::requestButton(ButtonLayout::ButtonId buttonId)
         return;
     }
 
+        // --- NEU: Toggle-Verhalten ---
+    if (_playing && buttonId == _currentButtonId) {
+        Serial.println(F("Stopping playback"));
+
+        _audioPlayer.stop();
+        _playing = false;
+        _currentButtonId = ButtonLayout::NO_BUTTON;
+
+        _display.showMessage("Stopped");
+        return;
+    }
+
     _currentPlaylistIndex = 0;
     _currentButtonId = buttonId;
 
