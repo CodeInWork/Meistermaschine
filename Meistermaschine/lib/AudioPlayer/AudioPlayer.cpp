@@ -11,7 +11,6 @@ AudioPlayer::AudioPlayer()
 
 bool AudioPlayer::begin()
 {
-    // SPI-Teilnehmer sicher deselektieren
     pinMode(AudioPins::CS, OUTPUT);
     pinMode(AudioPins::DCS, OUTPUT);
     pinMode(AudioPins::CARDCS, OUTPUT);
@@ -27,11 +26,14 @@ bool AudioPlayer::begin()
     }
 
     Serial.println(F("VS1053 found"));
-
-    _player.useInterrupt(VS1053_FILEPLAYER_PIN_INT);
     _player.setVolume(_currentVolume, _currentVolume);
 
     return true;
+}
+
+void AudioPlayer::enableBackgroundPlayback()
+{
+    _player.useInterrupt(VS1053_FILEPLAYER_PIN_INT);
 }
 
 bool AudioPlayer::playFile(const char* fileName)

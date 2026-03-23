@@ -7,9 +7,9 @@
 #include <SD.h>
 
 namespace AudioPins {
-    constexpr uint8_t RESET = 9;
-    constexpr uint8_t CS    = 10;
-    constexpr uint8_t DCS   = 8;
+    constexpr uint8_t RESET  = 9;
+    constexpr uint8_t CS     = 10;
+    constexpr uint8_t DCS    = 8;
     constexpr uint8_t CARDCS = 4;
     constexpr uint8_t DREQ   = 3;
 }
@@ -20,6 +20,8 @@ public:
     AudioPlayer();
 
     bool begin();
+    void enableBackgroundPlayback();
+
     bool playFile(const char* fileName);
     void stop();
     void setVolume(uint8_t volume);

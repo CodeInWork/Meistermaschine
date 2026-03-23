@@ -19,13 +19,32 @@ bool App::begin()
     _display.begin();
     _display.showMessage("AmbGen ready");
 
-    if (!_audioPlayer.begin()) {
-        _display.showMessage("VS1053 failed");
+    pinMode(AudioPins::RESET, OUTPUT);
+    pinMode(AudioPins::CS, OUTPUT);
+    pinMode(AudioPins::DCS, OUTPUT);
+    pinMode(AudioPins::CARDCS, OUTPUT);
+    pinMode(AudioPins::DREQ, INPUT);
+
+    digitalWrite(AudioPins::CS, HIGH);
+    digitalWrite(AudioPins::DCS, HIGH);
+    digitalWrite(AudioPins::CARDCS, HIGH);
+
+    // VS1053 zunächst stilllegen
+    digitalWrite(AudioPins::RESET, LOW);
+    delay(10);
+
+    // ZUERST SD / Registry
+    if (!_trackLibrary.begin()) {
+        _display.showMessage("SD failed");
         return false;
     }
 
-    if (!_trackLibrary.begin()) {
-        _display.showMessage("SD failed");
+    // VS1053 freigeben
+    digitalWrite(AudioPins::RESET, HIGH);
+    delay(10);
+
+    if (!_audioPlayer.begin()) {
+        _display.showMessage("VS1053 failed");
         return false;
     }
 
@@ -36,6 +55,7 @@ bool App::begin()
 
     _volume.begin();
     _audioPlayer.setVolume(_currentVolume);
+    _audioPlayer.enableBackgroundPlayback();
 
     Serial.println(F("App ready"));
     return true;
@@ -53,30 +73,6 @@ void App::update(uint32_t now)
 
     updateVolume();
     updatePlayback();
-}
-
-void App::updatePlayback()
-{
-    if (!_playing) {
-        return;
-    }
-
-    if (!_audioPlayer.isStopped()) {
-        return;
-    }
-
-    // aktueller Track ist beendet -> nächsten starten
-    ++_currentPlaylistIndex;
-
-    // aktuell: Playlist immer loopen
-    if (_currentPlaylistIndex >= _currentPlaylist.trackCount) {
-        _currentPlaylistIndex = 0;
-    }
-
-    if (!startCurrentTrack()) {
-        _playing = false;
-        _currentButtonId = ButtonLayout::NO_BUTTON;
-    }
 }
 
 void App::handleButtonEvents(const ButtonEvents& ev)
@@ -104,32 +100,26 @@ void App::requestButton(ButtonLayout::ButtonId buttonId)
         return;
     }
 
-    if (buttonId == _currentButtonId) {
-        return;
-    }
+    _currentPlaylistIndex = 0;
+    _currentButtonId = buttonId;
 
-    // for debugging button IDs
-    Serial.print(F("Requested button: "));
-    Serial.println(buttonId);
-
-    TrackLibrary::Playlist playlist;
-
-    if (!_trackLibrary.loadPlaylist(buttonId, playlist)) {
+    if (!_trackLibrary.loadPlaylist(buttonId, _currentPlaylist)) {
         Serial.println(F("No playlist for button"));
         return;
     }
 
-    if (playlist.trackCount == 0) {
+    if (_currentPlaylist.trackCount == 0) {
         Serial.println(F("Empty playlist"));
         return;
     }
 
-    _currentPlaylist = playlist;
     _currentPlaylistIndex = 0;
     _currentButtonId = buttonId;
 
-    if (startCurrentTrack()) {
+    if (_audioPlayer.playFile(_currentPlaylist.tracks[_currentPlaylistIndex])) {
         _playing = true;
+
+        _display.showTrackName(_currentPlaylist.tracks[_currentPlaylistIndex]);
 
         Serial.print(F("Button "));
         if (buttonId < 10) {
@@ -143,23 +133,29 @@ void App::requestButton(ButtonLayout::ButtonId buttonId)
     }
 }
 
-bool App::startCurrentTrack()
+void App::updatePlayback()
 {
-    if (_currentPlaylist.trackCount == 0) {
-        return false;
+    if (!_playing) {
+        return;
     }
+
+    if (!_audioPlayer.isStopped()) {
+        return;
+    }
+
+    ++_currentPlaylistIndex;
 
     if (_currentPlaylistIndex >= _currentPlaylist.trackCount) {
-        return false;
+        _currentPlaylistIndex = 0;   // loop
     }
 
-    const char* fileName = _currentPlaylist.tracks[_currentPlaylistIndex];
+    if (_audioPlayer.playFile(_currentPlaylist.tracks[_currentPlaylistIndex])) {
+        _display.showTrackName(_currentPlaylist.tracks[_currentPlaylistIndex]);
 
-    if (!_audioPlayer.playFile(fileName)) {
-        Serial.println(F("Failed to start track"));
-        return false;
+        Serial.print(F("Next track -> "));
+        Serial.println(_currentPlaylist.tracks[_currentPlaylistIndex]);
+    } else {
+        _playing = false;
+        Serial.println(F("Failed to start next track"));
     }
-
-    _display.showTrackName(fileName);
-    return true;
 }

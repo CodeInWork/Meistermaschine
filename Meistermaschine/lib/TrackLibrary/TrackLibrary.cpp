@@ -25,7 +25,26 @@ bool TrackLibrary::begin()
     Serial.print(F("SD.exists = "));
     Serial.println(SD.exists(REGISTRY_FILE));
 
-    File registry = SD.open(REGISTRY_FILE);
+    Serial.println(F("Testing registry open..."));
+
+    File root = SD.open("/");
+    Serial.println(F("Root listing:"));
+
+    while (true) {
+        File entry = root.openNextFile();
+        if (!entry) {
+            break;
+        }
+
+        Serial.println(entry.name());
+        entry.close();
+    }
+    root.close();
+
+    File registry = SD.open(REGISTRY_FILE, FILE_READ);
+
+    Serial.print(F("open result = "));
+    Serial.println(static_cast<bool>(registry));
     if (!registry) {
         Serial.println(F("Registry file not found"));
         return false;

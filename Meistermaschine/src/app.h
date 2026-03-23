@@ -24,7 +24,7 @@ private:
     void updatePlayback();
 
     void requestButton(ButtonLayout::ButtonId buttonId);
-    bool startCurrentTrack();
+    //bool startCurrentTrack();
 
     inline bool hasActiveButton() const
     {
