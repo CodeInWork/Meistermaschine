@@ -4,12 +4,7 @@
 #include <Arduino.h>
 #include "ButtonUtils.h"
 #include "ButtonEvents.h"
-
-namespace LocalButtonPins
-{
-    static constexpr uint8_t BTN_1 = 5;
-    static constexpr uint8_t BTN_2 = 6;
-}
+#include "HardwareConfig.h"
 
 namespace LocalButtonIds
 {

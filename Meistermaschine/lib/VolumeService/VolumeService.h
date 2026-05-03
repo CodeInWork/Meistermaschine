@@ -2,10 +2,7 @@
 #define VOLUME_SERVICE_H
 
 #include <Arduino.h>
-
-namespace VolumePins {
-    constexpr uint8_t POT = A0;
-}
+#include "HardwareConfig.h"
 
 class VolumeService
 {

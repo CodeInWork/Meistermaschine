@@ -22,7 +22,7 @@ namespace AudioPins
     constexpr uint8_t CS     = 10;
     constexpr uint8_t DCS    = 8;
     constexpr uint8_t CARDCS = 4;
-    constexpr uint8_t DREQ   = 3;
+    constexpr uint8_t DREQ   = 2;
 }
 
 namespace LocalButtonPins

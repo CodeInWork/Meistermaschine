@@ -73,6 +73,13 @@ void App::update(uint32_t now)
 
     updateVolume();
     updatePlayback();
+
+    // Debug: Heartbeat
+    static uint32_t lastHeartbeat = 0;
+    if (millis() - lastHeartbeat >= 1000) {
+        lastHeartbeat = millis();
+        Serial.println(F("alive"));
+}
 }
 
 void App::handleButtonEvents(const ButtonEvents& ev)
