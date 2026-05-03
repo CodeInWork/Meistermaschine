@@ -55,7 +55,8 @@ bool App::begin()
 
     _volume.begin();
     _audioPlayer.setVolume(_currentVolume);
-    _audioPlayer.enableBackgroundPlayback();
+    // interrupt mode proved unstable on Arduino Nano Every -> moved to cooperative feeding
+    //_audioPlayer.enableBackgroundPlayback();
 
     Serial.println(F("App ready"));
     return true;
@@ -63,7 +64,8 @@ bool App::begin()
 
 void App::update(uint32_t now)
 {
-    (void)now;
+    // cooperative feeding of audio player (see comment in begin())
+    _audioPlayer.update();  
 
     const ButtonEvents ev = _buttons.update();
 
@@ -79,7 +81,7 @@ void App::update(uint32_t now)
     if (millis() - lastHeartbeat >= 1000) {
         lastHeartbeat = millis();
         Serial.println(F("alive"));
-}
+    }
 }
 
 void App::handleButtonEvents(const ButtonEvents& ev)

@@ -31,6 +31,13 @@ bool AudioPlayer::begin()
     return true;
 }
 
+void AudioPlayer::update()
+{
+    if (!_player.stopped()) {
+        _player.feedBuffer();
+    }
+}
+
 void AudioPlayer::enableBackgroundPlayback()
 {
     _player.useInterrupt(VS1053_FILEPLAYER_PIN_INT);

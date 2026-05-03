@@ -15,6 +15,7 @@ public:
 
     bool begin();
     void enableBackgroundPlayback();
+    void update();
 
     bool playFile(const char* fileName);
     void stop();
