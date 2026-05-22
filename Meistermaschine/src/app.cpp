@@ -4,7 +4,8 @@ App::App()
     : _audioPlayer(),
       _trackLibrary(),
       _display(),
-      _buttons(),
+      _mcp1(I2CAddresses::MCP_1),
+      _buttons(_mcp1, 0),
       _volume(),
       _currentButtonId(ButtonLayout::NO_BUTTON),
       _currentVolume(20),
@@ -77,11 +78,11 @@ void App::update(uint32_t now)
     updatePlayback();
 
     // Debug: Heartbeat
-    static uint32_t lastHeartbeat = 0;
-    if (millis() - lastHeartbeat >= 1000) {
-        lastHeartbeat = millis();
-        Serial.println(F("alive"));
-    }
+    //static uint32_t lastHeartbeat = 0;
+    //if (millis() - lastHeartbeat >= 1000) {
+    //    lastHeartbeat = millis();
+    //    Serial.println(F("alive"));
+    //}
 }
 
 void App::handleButtonEvents(const ButtonEvents& ev)
@@ -90,6 +91,12 @@ void App::handleButtonEvents(const ButtonEvents& ev)
 
     if (ButtonLayout::singleSetBitToButtonId(ev.pressed, buttonId)) {
         requestButton(buttonId);
+    }
+
+    // Debug: Print button events
+    if (ev.pressed) {
+        Serial.print(F("Pressed mask: "));
+        Serial.println(ev.pressed, BIN);
     }
 }
 

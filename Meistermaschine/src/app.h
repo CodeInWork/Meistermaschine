@@ -5,7 +5,9 @@
 #include "AudioPlayer.h"
 #include "TrackLibrary.h"
 #include "DisplayService.h"
-#include "LocalButtons\LocalButtons.h"
+//#include "LocalButtons\LocalButtons.h"
+#include "MCP23017Buttons\MCP23017Buttons.h"
+#include "MCP23017Driver.h"
 #include "VolumeService.h"
 #include "ButtonUtils.h"
 #include "ButtonEvents.h"
@@ -40,7 +42,9 @@ private:
     AudioPlayer _audioPlayer;
     TrackLibrary _trackLibrary;
     DisplayService _display;
-    LocalButtons _buttons;
+    //LocalButtons _buttons;
+    MCP23017Driver _mcp1;
+    MCP23017Buttons _buttons;
     VolumeService _volume;
 
     ButtonLayout::ButtonId _currentButtonId;
