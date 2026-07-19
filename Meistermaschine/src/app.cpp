@@ -5,7 +5,9 @@ App::App()
       _trackLibrary(),
       _display(),
       _mcp1(I2CAddresses::MCP_1),
-      _buttons(_mcp1, 0),
+      _mcp2(I2CAddresses::MCP_2),
+      _buttons1(_mcp1, 0),
+      _buttons2(_mcp2, 16),
       _volume(),
       _currentButtonId(ButtonLayout::NO_BUTTON),
       _currentVolume(20),
@@ -49,8 +51,13 @@ bool App::begin()
         return false;
     }
 
-    if (!_buttons.begin()) {
-        _display.showMessage("Buttons failed");
+    if (!_buttons1.begin()) {
+        _display.showMessage("MCP1 buttons failed");
+        return false;
+    }
+
+    if (!_buttons2.begin()) {
+        _display.showMessage("MCP2 buttons failed");
         return false;
     }
 
@@ -68,10 +75,18 @@ void App::update(uint32_t now)
     // cooperative feeding of audio player (see comment in begin())
     _audioPlayer.update();  
 
-    const ButtonEvents ev = _buttons.update();
+    // combine events of both MCP buttons
+    const ButtonEvents ev1 = _buttons1.update();
+    const ButtonEvents ev2 = _buttons2.update();
 
-    if (ev.valid) {
-        handleButtonEvents(ev);
+    ButtonEvents combinedEvents{};
+    combinedEvents.pressed  = ev1.pressed  | ev2.pressed;
+    combinedEvents.released = ev1.released | ev2.released;
+    combinedEvents.held     = ev1.held     | ev2.held;
+    combinedEvents.valid    = ev1.valid || ev2.valid;
+
+    if (combinedEvents.valid) {
+        handleButtonEvents(combinedEvents);
     }
 
     updateVolume();

@@ -44,7 +44,9 @@ private:
     DisplayService _display;
     //LocalButtons _buttons;
     MCP23017Driver _mcp1;
-    MCP23017Buttons _buttons;
+    MCP23017Driver _mcp2;
+    MCP23017Buttons _buttons1;
+    MCP23017Buttons _buttons2;
     VolumeService _volume;
 
     ButtonLayout::ButtonId _currentButtonId;
