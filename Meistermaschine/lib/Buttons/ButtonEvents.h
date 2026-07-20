@@ -6,10 +6,12 @@
 
 struct ButtonEvents
 {
-    ButtonLayout::ButtonMask pressed = 0;
-    ButtonLayout::ButtonMask released = 0;
-    ButtonLayout::ButtonMask held = 0;
-    bool valid = false;
+    ButtonLayout::Coord pressed;
+    ButtonLayout::Coord released;
+    ButtonLayout::Coord current;
 };
 
 #endif
+
+
+

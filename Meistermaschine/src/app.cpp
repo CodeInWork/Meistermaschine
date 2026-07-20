@@ -7,9 +7,9 @@ App::App()
       _mcp1(I2CAddresses::MCP_1),
       _mcp2(I2CAddresses::MCP_2),
       _buttons1(_mcp1, 0),
-      _buttons2(_mcp2, 16),
+      _buttons2(_mcp2, 2),
       _volume(),
-      _currentButtonId(ButtonLayout::NO_BUTTON),
+      _currentButton(),
       _currentVolume(20),
       _playing(false),
       _currentPlaylist(),
@@ -72,47 +72,91 @@ bool App::begin()
 
 void App::update(uint32_t now)
 {
-    // cooperative feeding of audio player (see comment in begin())
-    _audioPlayer.update();  
+    // Cooperative feeding of the audio player.
+    _audioPlayer.update();
 
-    // combine events of both MCP buttons
-    const ButtonEvents ev1 = _buttons1.update();
-    const ButtonEvents ev2 = _buttons2.update();
+    const ButtonEvents events1 = _buttons1.update();
+    const ButtonEvents events2 = _buttons2.update();
 
     ButtonEvents combinedEvents{};
-    combinedEvents.pressed  = ev1.pressed  | ev2.pressed;
-    combinedEvents.released = ev1.released | ev2.released;
-    combinedEvents.held     = ev1.held     | ev2.held;
-    combinedEvents.valid    = ev1.valid || ev2.valid;
 
-    if (combinedEvents.valid) {
+    /*
+     * When both MCPs report a transition in the same App cycle,
+     * the event from MCP2 overwrites the event from MCP1.
+     */
+    if (ButtonLayout::isValid(events1.pressed)) {
+        combinedEvents.pressed = events1.pressed;
+    }
+
+    if (ButtonLayout::isValid(events2.pressed)) {
+        combinedEvents.pressed = events2.pressed;
+    }
+
+    if (ButtonLayout::isValid(events1.released)) {
+        combinedEvents.released = events1.released;
+    }
+
+    if (ButtonLayout::isValid(events2.released)) {
+        combinedEvents.released = events2.released;
+    }
+
+    /*
+     * current describes a button that is currently down.
+     * MCP2 receives priority only when it actually has a current button.
+     */
+    if (ButtonLayout::isValid(events1.current)) {
+        combinedEvents.current = events1.current;
+    }
+
+    if (ButtonLayout::isValid(events2.current)) {
+        combinedEvents.current = events2.current;
+    }
+
+    const bool hasButtonEvent =
+        ButtonLayout::isValid(combinedEvents.pressed) ||
+        ButtonLayout::isValid(combinedEvents.released) ||
+        ButtonLayout::isValid(combinedEvents.current);
+
+    if (hasButtonEvent) {
         handleButtonEvents(combinedEvents);
     }
 
     updateVolume();
     updatePlayback();
-
-    // Debug: Heartbeat
-    //static uint32_t lastHeartbeat = 0;
-    //if (millis() - lastHeartbeat >= 1000) {
-    //    lastHeartbeat = millis();
-    //    Serial.println(F("alive"));
-    //}
 }
 
-void App::handleButtonEvents(const ButtonEvents& ev)
+void App::handleButtonEvents(const ButtonEvents& events)
 {
-    ButtonLayout::ButtonId buttonId = ButtonLayout::NO_BUTTON;
+    if (ButtonLayout::isValid(events.pressed)) {
+        requestButton(events.pressed);
 
-    if (ButtonLayout::singleSetBitToButtonId(ev.pressed, buttonId)) {
-        requestButton(buttonId);
+        Serial.print(F("Pressed: column "));
+        Serial.print(events.pressed.column);
+        Serial.print(F(", row "));
+        Serial.println(events.pressed.row);
     }
 
-    // Debug: Print button events
-    if (ev.pressed) {
-        Serial.print(F("Pressed mask: "));
-        Serial.println(ev.pressed, BIN);
+    if (ButtonLayout::isValid(events.released)) {
+        Serial.print(F("Released: column "));
+        Serial.print(events.released.column);
+        Serial.print(F(", row "));
+        Serial.println(events.released.row);
     }
+}
+
+bool App::hasActiveButton() const
+{
+    return ButtonLayout::isValid(_currentButton);
+}
+
+bool App::isCurrentButton(
+    const ButtonLayout::Coord& button
+) const
+{
+    return
+        hasActiveButton() &&
+        _currentButton.column == button.column &&
+        _currentButton.row == button.row;
 }
 
 void App::updateVolume()
@@ -125,54 +169,58 @@ void App::updateVolume()
     }
 }
 
-void App::requestButton(ButtonLayout::ButtonId buttonId)
+void App::requestButton(
+    const ButtonLayout::Coord& button
+)
 {
-    if (!ButtonLayout::isValid(buttonId)) {
+    if (!ButtonLayout::isValid(button)) {
         return;
     }
 
-        // --- NEU: Toggle-Verhalten ---
-    if (_playing && buttonId == _currentButtonId) {
+    // Toggle: pressing the currently active button stops playback.
+    if (_playing && isCurrentButton(button)) {
         Serial.println(F("Stopping playback"));
 
         _audioPlayer.stop();
         _playing = false;
-        _currentButtonId = ButtonLayout::NO_BUTTON;
+        _currentButton = ButtonLayout::Coord{};
 
         _display.showMessage("Stopped");
         return;
     }
 
     _currentPlaylistIndex = 0;
-    _currentButtonId = buttonId;
+    _currentButton = button;
 
-    if (!_trackLibrary.loadPlaylist(buttonId, _currentPlaylist)) {
+    if (!_trackLibrary.loadPlaylist(button, _currentPlaylist)) {
         Serial.println(F("No playlist for button"));
+        _currentButton = ButtonLayout::Coord{};
         return;
     }
 
     if (_currentPlaylist.trackCount == 0) {
         Serial.println(F("Empty playlist"));
+        _currentButton = ButtonLayout::Coord{};
         return;
     }
 
-    _currentPlaylistIndex = 0;
-    _currentButtonId = buttonId;
-
-    if (_audioPlayer.playFile(_currentPlaylist.tracks[_currentPlaylistIndex])) {
+    if (_audioPlayer.playFile(
+            _currentPlaylist.tracks[_currentPlaylistIndex])) {
         _playing = true;
 
-        _display.showTrackName(_currentPlaylist.tracks[_currentPlaylistIndex]);
+        _display.showTrackName(
+            _currentPlaylist.tracks[_currentPlaylistIndex]);
 
-        Serial.print(F("Button "));
-        if (buttonId < 10) {
-            Serial.print('0');
-        }
-        Serial.print(buttonId);
-        Serial.print(F(" -> "));
-        Serial.println(_currentPlaylist.tracks[_currentPlaylistIndex]);
+        Serial.print(F("Button ["));
+        Serial.print(button.column);
+        Serial.print(F("]["));
+        Serial.print(button.row);
+        Serial.print(F("] -> "));
+        Serial.println(
+            _currentPlaylist.tracks[_currentPlaylistIndex]);
     } else {
         _playing = false;
+        _currentButton = ButtonLayout::Coord{};
     }
 }
 

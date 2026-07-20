@@ -13,6 +13,27 @@ namespace ButtonLayout
     using ButtonId = uint8_t;
     using ButtonMask = uint32_t;
 
+    // Represents a button's position in the layout grid. Top left button is (0, 0), bottom right button is (3, 4).
+    struct Coord
+    {
+        uint8_t column;
+        uint8_t row;
+
+        constexpr Coord(
+            uint8_t columnValue = 255,
+            uint8_t rowValue = 255
+        )
+            : column(columnValue),
+            row(rowValue)
+        {
+        }
+    };
+
+    constexpr bool isValid(const Coord& button) noexcept
+    {
+        return button.column < COLUMN_COUNT && button.row < ROW_COUNT;
+    }
+
     constexpr ButtonId toButtonId(uint8_t column, uint8_t row) noexcept
     {
         return static_cast<ButtonId>(column * ROW_COUNT + row);
