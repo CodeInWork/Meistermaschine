@@ -2,7 +2,10 @@
 #include "AudioPlayer.h"
 
 TrackLibrary::TrackLibrary()
-    : _initialized(false)
+    :   _initialized(false),
+        _presetName{0},
+        _presetPath{0},
+        _registryPath{0}
 {
 }
 
@@ -19,44 +22,92 @@ bool TrackLibrary::begin()
 
     Serial.println(F("SD initialized"));
 
-    Serial.print(F("Looking for: "));
-    Serial.println(REGISTRY_FILE);
-
-    Serial.print(F("SD.exists = "));
-    Serial.println(SD.exists(REGISTRY_FILE));
-
-    Serial.println(F("Testing registry open..."));
-
-    File root = SD.open("/");
-    Serial.println(F("Root listing:"));
-
-    while (true) {
-        File entry = root.openNextFile();
-        if (!entry) {
-            break;
-        }
-
-        Serial.println(entry.name());
-        entry.close();
-    }
-    root.close();
-
-    File registry = SD.open(REGISTRY_FILE, FILE_READ);
-
-    Serial.print(F("open result = "));
-    Serial.println(static_cast<bool>(registry));
-    if (!registry) {
-        Serial.println(F("Registry file not found"));
+    if (!findPreset()) {
+        Serial.println(F("No valid preset found"));
         return false;
     }
 
-    Serial.println(F("Registry file found"));
+    Serial.print(F("Preset directory: "));
+    Serial.println(_presetPath);
+
+    Serial.print(F("Registry: "));
+    Serial.println(_registryPath);
+
+    Serial.print(F("Registry: "));
+    Serial.println(_registryPath);
+
+    File registry = SD.open(_registryPath, FILE_READ);
+
+    if (!registry) {
+        Serial.println(F("Failed to open registry"));
+        return false;
+    }
+
     registry.close();
 
     _initialized = true;
+
     Serial.println(F("TrackLibrary ready"));
     return true;
 }
+
+bool TrackLibrary::hasMmsExtension(
+    const char* fileName
+) const
+{
+    if (fileName == nullptr) {
+        return false;
+    }
+
+    const size_t length = strlen(fileName);
+
+    if (length < 4) {
+        return false;
+    }
+
+    const char* extension = &fileName[length - 4];
+
+    return
+        extension[0] == '.' &&
+        (extension[1] == 'm' || extension[1] == 'M') &&
+        (extension[2] == 'm' || extension[2] == 'M') &&
+        (extension[3] == 's' || extension[3] == 'S');
+}
+
+bool TrackLibrary::buildTrackPath(
+    const char* fileName,
+    char* trackPath,
+    size_t trackPathSize
+) const
+{
+    if (
+        fileName == nullptr ||
+        trackPath == nullptr ||
+        trackPathSize == 0 ||
+        _presetPath[0] == '\0'
+    ) {
+        return false;
+    }
+
+    const int written = snprintf(
+        trackPath,
+        trackPathSize,
+        "%s/%s",
+        _presetPath,
+        fileName
+    );
+
+    if (
+        written < 0 ||
+        static_cast<size_t>(written) >= trackPathSize
+    ) {
+        trackPath[0] = '\0';
+        return false;
+    }
+
+    return true;
+}
+
 
 bool TrackLibrary::loadPlaylist(
     const ButtonLayout::Coord& requestedButton,
@@ -74,7 +125,7 @@ bool TrackLibrary::loadPlaylist(
         return false;
     }
 
-    File registry = SD.open(REGISTRY_FILE);
+    File registry = SD.open(_registryPath, FILE_READ);
 
     if (!registry) {
         Serial.println(F("Failed to open registry"));
@@ -113,29 +164,35 @@ bool TrackLibrary::loadPlaylist(
                     Serial.print(parsedButton.row);
                     Serial.println(F("]"));
 
-                    if (
-                        playlist.trackCount <
-                        MAX_PLAYLIST_TRACKS
-                    ) {
-                        strncpy(
-                            playlist.tracks[
-                                playlist.trackCount
-                            ],
-                            fileName,
-                            MAX_FILENAME_LEN - 1
-                        );
+                    if (playlist.trackCount < MAX_PLAYLIST_TRACKS) {
+                        char* trackPath =
+                            playlist.tracks[playlist.trackCount];
 
-                        playlist.tracks[
-                            playlist.trackCount
-                        ][MAX_FILENAME_LEN - 1] = '\0';
+                        if (
+                            buildTrackPath(
+                                fileName,
+                                trackPath,
+                                MAX_PATH_LEN
+                            )
+                        ) {
+                            Serial.print(F("Constructed track path: "));
+                            Serial.println(trackPath);
 
-                        ++playlist.trackCount;
+                            if (!SD.exists(trackPath)) {
+                                Serial.print(F("Track file not found: "));
+                                Serial.println(trackPath);
+                            } else {
+                                Serial.println(F("Track file exists"));
+                            }
+
+                            ++playlist.trackCount;
+                        } else {
+                            Serial.print(F("Could not build track path for: "));
+                            Serial.println(fileName);
+                        }
                     } else {
                         Serial.println(
-                            F(
-                                "Playlist full, "
-                                "additional tracks ignored"
-                            )
+                            F("Playlist full, additional tracks ignored")
                         );
                     }
                 }
@@ -159,36 +216,47 @@ bool TrackLibrary::loadPlaylist(
         char fileName[MAX_FILENAME_LEN] = {0};
 
         if (
-            parseLine(
-                line,
-                parsedButton,
+    parseLine(
+        line,
+        parsedButton,
+        fileName,
+        sizeof(fileName)
+    ) &&
+    coordinatesEqual(
+        parsedButton,
+        requestedButton
+    )
+) {
+    Serial.print(F("Matched button ["));
+    Serial.print(parsedButton.column);
+    Serial.print(F("]["));
+    Serial.print(parsedButton.row);
+    Serial.println(F("]"));
+
+    if (playlist.trackCount < MAX_PLAYLIST_TRACKS) {
+        if (
+            buildTrackPath(
                 fileName,
-                sizeof(fileName)
-            ) &&
-            coordinatesEqual(
-                parsedButton,
-                requestedButton
+                playlist.tracks[playlist.trackCount],
+                sizeof(playlist.tracks[playlist.trackCount])
             )
         ) {
-            if (
-                playlist.trackCount <
-                MAX_PLAYLIST_TRACKS
-            ) {
-                strncpy(
-                    playlist.tracks[
-                        playlist.trackCount
-                    ],
-                    fileName,
-                    MAX_FILENAME_LEN - 1
-                );
+            Serial.print(F("Track path: "));
+            Serial.println(
+                playlist.tracks[playlist.trackCount]
+            );
 
-                playlist.tracks[
-                    playlist.trackCount
-                ][MAX_FILENAME_LEN - 1] = '\0';
-
-                ++playlist.trackCount;
-            }
+            ++playlist.trackCount;
+        } else {
+            Serial.print(F("Track path too long: "));
+            Serial.println(fileName);
         }
+    } else {
+        Serial.println(
+            F("Playlist full, additional tracks ignored")
+        );
+    }
+}
     }
 
     registry.close();
@@ -295,4 +363,137 @@ void TrackLibrary::clearPlaylist(
     ) {
         playlist.tracks[i][0] = '\0';
     }
+}
+
+const char* TrackLibrary::presetName() const
+{
+    return _presetName;
+}
+
+bool TrackLibrary::findPreset()
+{
+    _presetName[0] = '\0';
+    _presetPath[0] = '\0';
+    _registryPath[0] = '\0';
+
+    File root = SD.open("/");
+
+    if (!root) {
+        Serial.println(F("Failed to open SD root"));
+        return false;
+    }
+
+    while (true) {
+        File directory = root.openNextFile();
+
+        if (!directory) {
+            break;
+        }
+
+        if (!directory.isDirectory()) {
+            directory.close();
+            continue;
+        }
+
+        const char* directoryName = directory.name();
+
+        Serial.print(F("Checking directory: "));
+        Serial.println(directoryName);
+
+        while (true) {
+            File entry = directory.openNextFile();
+
+            if (!entry) {
+                break;
+            }
+
+            Serial.print(F("  Entry: "));
+            Serial.println(entry.name());
+
+            if (
+                !entry.isDirectory() &&
+                hasMmsExtension(entry.name())
+            ) {
+                const size_t presetNameLength =
+                    strlen(directoryName);
+
+                if (
+                    presetNameLength >
+                    MAX_PRESET_NAME_CHARS
+                ) {
+                    Serial.println(F("Preset name too long"));
+
+                    entry.close();
+                    directory.close();
+                    root.close();
+
+                    return false;
+                }
+
+                strncpy(
+                    _presetName,
+                    directoryName,
+                    MAX_PRESET_NAME_LEN - 1
+                );
+
+                _presetName[
+                    MAX_PRESET_NAME_LEN - 1
+                ] = '\0';
+
+                const int presetWritten = snprintf(
+                    _presetPath,
+                    sizeof(_presetPath),
+                    "/%s",
+                    directoryName
+                );
+
+                const int registryWritten = snprintf(
+                    _registryPath,
+                    sizeof(_registryPath),
+                    "%s/%s",
+                    _presetPath,
+                    entry.name()
+                );
+
+                entry.close();
+                directory.close();
+                root.close();
+
+                if (
+                    presetWritten < 0 ||
+                    static_cast<size_t>(presetWritten) >=
+                        sizeof(_presetPath)
+                ) {
+                    Serial.println(F("Preset path too long"));
+                    return false;
+                }
+
+                if (
+                    registryWritten < 0 ||
+                    static_cast<size_t>(registryWritten) >=
+                        sizeof(_registryPath)
+                ) {
+                    Serial.println(F("Registry path too long"));
+                    return false;
+                }
+
+                Serial.print(F("Selected preset: "));
+                Serial.println(_presetName);
+
+                Serial.print(F("Registry path: "));
+                Serial.println(_registryPath);
+
+                return true;
+            }
+
+            entry.close();
+        }
+
+        directory.close();
+    }
+
+    root.close();
+
+    Serial.println(F("No preset directory with MMS file found"));
+    return false;
 }

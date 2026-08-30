@@ -24,6 +24,11 @@ private:
     void handleButtonEvents(const ButtonEvents& events);
     void updateVolume();
     void updatePlayback();
+    void updateDisplay(uint32_t now);
+
+    void showPresetName();
+    void showCurrentTrack();
+    void clearCurrentPlaylist();
 
     void requestButton(const ButtonLayout::Coord& button);
 
@@ -31,6 +36,16 @@ private:
     bool isCurrentButton(const ButtonLayout::Coord& button) const;
 
 private:
+
+    enum class DisplayState
+    {
+        Startup,
+        Preset,
+        Track
+    };
+    DisplayState _displayState;
+    uint32_t _displayStateStartedMs;
+
     AudioPlayer _audioPlayer;
     TrackLibrary _trackLibrary;
     DisplayService _display;

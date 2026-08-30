@@ -8,7 +8,7 @@ void setup()
     Serial.begin(9600);
     //while (!Serial) {}    uncomment for boards with native USB (e.g. Leonardo, Micro, Zero, etc.)
     delay(1000);
-    Serial.println(F("Starting AmbGen..."));
+    Serial.println(F("Starting MEISTERMASCHINE..."));
 
     if (!app.begin()) {
         Serial.println("App init failed");

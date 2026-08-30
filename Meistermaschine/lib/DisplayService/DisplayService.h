@@ -15,6 +15,8 @@ public:
     void showTrackName(const char* name);
 
 private:
+    const char* extractTitle(const char* path) const;
+private:
     LiquidCrystal_I2C _lcd;
 };
 
