@@ -141,17 +141,28 @@ void App::showPresetName()
 void App::showCurrentTrack()
 {
     if (
-        _currentPlaylistIndex >=
-        _currentPlaylist.trackCount
+        !_playing ||
+        !ButtonLayout::isValid(_currentButton) ||
+        _currentPlaylistIndex >= _currentPlaylist.trackCount
     ) {
         return;
     }
 
-    _display.showTrackName(
-        _currentPlaylist.tracks[_currentPlaylistIndex]
+    char buttonText[8];
+
+    snprintf(
+        buttonText,
+        sizeof(buttonText),
+        "BTN %u,%u",
+        _currentButton.column+1,
+        _currentButton.row+1
     );
 
-    _displayState = DisplayState::Track;
+    _display.showLayout(
+        _currentPlaylist.titles[_currentPlaylistIndex],
+        buttonText,
+        ""
+    );
 }
 
 void App::handleButtonEvents(const ButtonEvents& events)

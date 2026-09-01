@@ -9,6 +9,12 @@ class DisplayService
 {
 public:
     DisplayService();
+    
+    void showLayout(
+        const char* top,
+        const char* bottomLeft,
+        const char* bottomRight
+    );
 
     void begin();
     void showMessage(const char* text);
