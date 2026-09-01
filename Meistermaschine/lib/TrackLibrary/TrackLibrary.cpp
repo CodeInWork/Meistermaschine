@@ -145,13 +145,16 @@ bool TrackLibrary::loadPlaylist(
 
                 ButtonLayout::Coord parsedButton;
                 char fileName[MAX_FILENAME_LEN] = {0};
+                char title[MAX_TRACK_TITLE_LEN] = {0};
 
                 if (
                     parseLine(
                         line,
                         parsedButton,
                         fileName,
-                        sizeof(fileName)
+                        sizeof(fileName),
+                        title,
+                        sizeof(title)
                     ) &&
                     coordinatesEqual(
                         parsedButton,
@@ -172,7 +175,7 @@ bool TrackLibrary::loadPlaylist(
                             buildTrackPath(
                                 fileName,
                                 trackPath,
-                                MAX_PATH_LEN
+                                sizeof(playlist.tracks[playlist.trackCount])
                             )
                         ) {
                             Serial.print(F("Constructed track path: "));
@@ -184,6 +187,15 @@ bool TrackLibrary::loadPlaylist(
                             } else {
                                 Serial.println(F("Track file exists"));
                             }
+                            
+                            strncpy(
+                                playlist.titles[playlist.trackCount],
+                                title,
+                                sizeof(playlist.titles[playlist.trackCount]) - 1
+                            );
+
+                            playlist.titles[playlist.trackCount]
+                                [sizeof(playlist.titles[playlist.trackCount]) - 1] = '\0';
 
                             ++playlist.trackCount;
                         } else {
@@ -214,18 +226,21 @@ bool TrackLibrary::loadPlaylist(
 
         ButtonLayout::Coord parsedButton;
         char fileName[MAX_FILENAME_LEN] = {0};
+        char title[MAX_TRACK_TITLE_LEN] = {0};
 
         if (
-    parseLine(
-        line,
-        parsedButton,
-        fileName,
-        sizeof(fileName)
-    ) &&
-    coordinatesEqual(
-        parsedButton,
-        requestedButton
-    )
+            parseLine(
+                line,
+                parsedButton,
+                fileName,
+                sizeof(fileName),
+                title,
+                sizeof(title)
+            ) &&
+            coordinatesEqual(
+                parsedButton,
+                requestedButton
+        )
 ) {
     Serial.print(F("Matched button ["));
     Serial.print(parsedButton.column);
@@ -276,35 +291,34 @@ bool TrackLibrary::parseLine(
     const char* line,
     ButtonLayout::Coord& button,
     char* fileName,
-    size_t fileNameSize
+    size_t fileNameSize,
+    char* title,
+    size_t titleSize
 ) const
 {
     if (
         line == nullptr ||
         fileName == nullptr ||
-        fileNameSize == 0
+        fileNameSize == 0 ||
+        title == nullptr ||
+        titleSize == 0
     ) {
         return false;
     }
 
-    // Minimum format: "00 a.mp3"
+    // Minimum format:
+    // "00\tT000001.MP3\tTitle"
     if (!isDigit(line[0]) || !isDigit(line[1])) {
         return false;
     }
-    // Check for a space or tab after the two digits
+
     if (line[2] != ' ' && line[2] != '\t') {
         return false;
     }
 
-    const uint8_t column =
-        static_cast<uint8_t>(line[0] - '0');
-
-    const uint8_t row =
-        static_cast<uint8_t>(line[1] - '0');
-
     const ButtonLayout::Coord parsedButton{
-        column,
-        row
+        static_cast<uint8_t>(line[0] - '0'),
+        static_cast<uint8_t>(line[1] - '0')
     };
 
     if (!ButtonLayout::isValid(parsedButton)) {
@@ -313,8 +327,9 @@ bool TrackLibrary::parseLine(
 
     button = parsedButton;
 
-    uint8_t i = 2;
+    size_t i = 2;
 
+    // Skip separator after coordinates
     while (line[i] == ' ' || line[i] == '\t') {
         ++i;
     }
@@ -323,13 +338,66 @@ bool TrackLibrary::parseLine(
         return false;
     }
 
-    strncpy(
-        fileName,
-        &line[i],
-        fileNameSize - 1
-    );
+    // --- machine filename ---
+    size_t filePos = 0;
 
-    fileName[fileNameSize - 1] = '\0';
+    while (
+        line[i] != '\0' &&
+        line[i] != '\t'
+    ) {
+        if (filePos < fileNameSize - 1) {
+            fileName[filePos++] = line[i];
+        }
+
+        ++i;
+    }
+
+    fileName[filePos] = '\0';
+
+    if (filePos == 0) {
+        return false;
+    }
+
+    // No title column:
+    // keep old two-column MMS files usable.
+    if (line[i] == '\0') {
+        strncpy(
+            title,
+            fileName,
+            titleSize - 1
+        );
+
+        title[titleSize - 1] = '\0';
+
+        return true;
+    }
+
+    // Skip tab between filename and title
+    ++i;
+
+    // --- display title ---
+    size_t titlePos = 0;
+
+    while (line[i] != '\0') {
+        if (titlePos < titleSize - 1) {
+            title[titlePos++] = line[i];
+        }
+
+        ++i;
+    }
+
+    title[titlePos] = '\0';
+
+    // Empty title -> use filename as fallback
+    if (titlePos == 0) {
+        strncpy(
+            title,
+            fileName,
+            titleSize - 1
+        );
+
+        title[titleSize - 1] = '\0';
+    }
 
     return true;
 }
@@ -362,6 +430,7 @@ void TrackLibrary::clearPlaylist(
         ++i
     ) {
         playlist.tracks[i][0] = '\0';
+        playlist.titles[i][0] = '\0';
     }
 }
 
