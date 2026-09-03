@@ -6,10 +6,10 @@
 
 struct ButtonEvents
 {
-    ButtonLayout::Coord pressed;
+    ButtonLayout::Coord held;
     ButtonLayout::Coord released;
-    ButtonLayout::Coord current;
-    ButtonLayout::Coord longPressed;
+    
+    uint32_t pressDurationMs = 0;
 };
 
 #endif

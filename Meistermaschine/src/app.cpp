@@ -1,4 +1,5 @@
 #include "app.h"
+#include "SoftwareConfig.h"
 
 App::App()
     : _displayState(DisplayState::Startup),
@@ -68,7 +69,9 @@ bool App::begin()
     _volume.begin();
     _audioPlayer.setVolume(_currentVolume);
 
-    Serial.println(F("App ready"));
+    if (SoftwareConfig::DEBUG) {
+        Serial.println(F("App ready"));
+    }
     return true;
 }
 
@@ -82,45 +85,34 @@ void App::update(uint32_t now)
     const ButtonEvents events1 = _buttons1.update();
     const ButtonEvents events2 = _buttons2.update();
 
+    const ButtonEvents events1 = _buttons1.update();
+    const ButtonEvents events2 = _buttons2.update();
+
     ButtonEvents combinedEvents{};
 
-    if (ButtonLayout::isValid(events1.pressed)) {
-        combinedEvents.pressed = events1.pressed;
+    if (ButtonLayout::isValid(events1.held)) {
+        combinedEvents.held = events1.held;
+        combinedEvents.pressDurationMs = events1.pressDurationMs;
     }
 
-    if (ButtonLayout::isValid(events2.pressed)) {
-        combinedEvents.pressed = events2.pressed;
+    if (ButtonLayout::isValid(events2.held)) {
+        combinedEvents.held = events2.held;
+        combinedEvents.pressDurationMs = events2.pressDurationMs;
     }
 
     if (ButtonLayout::isValid(events1.released)) {
         combinedEvents.released = events1.released;
+        combinedEvents.pressDurationMs = events1.pressDurationMs;
     }
 
     if (ButtonLayout::isValid(events2.released)) {
         combinedEvents.released = events2.released;
-    }
-
-    if (ButtonLayout::isValid(events1.current)) {
-        combinedEvents.current = events1.current;
-    }
-
-    if (ButtonLayout::isValid(events2.current)) {
-        combinedEvents.current = events2.current;
-    }
-
-    if (ButtonLayout::isValid(events1.longPressed)) {
-        combinedEvents.longPressed = events1.longPressed;
-    }
-
-    if (ButtonLayout::isValid(events2.longPressed)) {
-        combinedEvents.longPressed = events2.longPressed;
+        combinedEvents.pressDurationMs = events2.pressDurationMs;
     }
 
     const bool hasButtonEvent =
-        ButtonLayout::isValid(combinedEvents.pressed) ||
-        ButtonLayout::isValid(combinedEvents.released) ||
-        ButtonLayout::isValid(combinedEvents.current) ||
-        ButtonLayout::isValid(combinedEvents.longPressed);
+        ButtonLayout::isValid(combinedEvents.held) ||
+        ButtonLayout::isValid(combinedEvents.released);
 
     if (hasButtonEvent) {
         handleButtonEvents(combinedEvents);
@@ -144,6 +136,8 @@ void App::updateDisplay(uint32_t now)
 
 void App::showPresetName()
 {
+    if (_previewActive) {return;}
+
     _display.showMessage(_trackLibrary.presetName());
     _displayState = DisplayState::Preset;
 }
@@ -181,20 +175,48 @@ void App::showCurrentTrack()
 
 void App::handleButtonEvents(const ButtonEvents& events)
 {
-    if (ButtonLayout::isValid(events.pressed)) {
-        requestButton(events.pressed);
-
-        Serial.print(F("Pressed: column "));
-        Serial.print(events.pressed.column);
-        Serial.print(F(", row "));
-        Serial.println(events.pressed.row);
+    /*
+     * A button is being held.
+     * Once the long-press threshold is reached, show its preview.
+     */
+    if (
+        ButtonLayout::isValid(events.held) &&
+        events.pressDurationMs >= LONG_PRESS_MS &&
+        !_previewActive
+    ) {
+        previewButton(events.held);
+        return;
     }
 
+    /*
+     * A button was released.
+     */
     if (ButtonLayout::isValid(events.released)) {
-        Serial.print(F("Released: column "));
-        Serial.print(events.released.column);
-        Serial.print(F(", row "));
-        Serial.println(events.released.row);
+
+        if (SoftwareConfig::DEBUG) {
+            Serial.print(F("Released: column "));
+            Serial.print(events.released.column);
+            Serial.print(F(", row "));
+            Serial.print(events.released.row);
+            Serial.print(F(", duration "));
+            Serial.print(events.pressDurationMs);
+            Serial.println(F(" ms"));
+        }
+
+        /*
+         * If a preview was active, the release only ends the preview.
+         * It must not activate the button.
+         */
+        if (_previewActive) {
+            _previewActive = false;
+            restoreDisplay();
+            return;
+        }
+
+        /*
+         * Otherwise this was a normal short press.
+         */
+        requestButton(events.released);
     }
 }
 
@@ -223,9 +245,7 @@ void App::updateVolume()
     }
 }
 
-void App::requestButton(
-    const ButtonLayout::Coord& button
-)
+void App::requestButton(const ButtonLayout::Coord& button)
 {
     if (!ButtonLayout::isValid(button)) {
         return;
@@ -233,7 +253,9 @@ void App::requestButton(
 
     // Pressing the currently active button toggles playback off.
     if (_playing && isCurrentButton(button)) {
-        Serial.println(F("Stopping playback"));
+        if (SoftwareConfig::DEBUG) {
+            Serial.println(F("Stopping playback"));
+        }
 
         _audioPlayer.stop();
 
@@ -258,12 +280,16 @@ void App::requestButton(
             requestedPlaylist
         )
     ) {
-        Serial.println(F("No playlist for button"));
+        if (SoftwareConfig::DEBUG) {
+            Serial.println(F("No playlist for button"));
+        }
         return;
     }
 
     if (requestedPlaylist.trackCount == 0) {
-        Serial.println(F("Empty playlist"));
+        if (SoftwareConfig::DEBUG) {
+            Serial.println(F("Empty playlist"));
+        }
         return;
     }
 
@@ -289,18 +315,22 @@ void App::requestButton(
         _playing = true;
         showCurrentTrack();
 
-        Serial.print(F("Button ["));
-        Serial.print(button.column);
-        Serial.print(F("]["));
-        Serial.print(button.row);
-        Serial.print(F("] -> "));
-        Serial.println(
-            _currentPlaylist.tracks[
-                _currentPlaylistIndex
-            ]
-        );
+        if (SoftwareConfig::DEBUG) {
+            Serial.print(F("Button ["));
+            Serial.print(button.column);
+            Serial.print(F("]["));
+            Serial.print(button.row);
+            Serial.print(F("] -> "));
+            Serial.println(
+                _currentPlaylist.tracks[
+                    _currentPlaylistIndex
+                ]
+            );
+        }
     } else {
-        Serial.println(F("Failed to start requested track"));
+        if (SoftwareConfig::DEBUG) {
+            Serial.println(F("Failed to start requested track"));
+        }
 
         _playing = false;
         _currentButton = ButtonLayout::Coord{};
@@ -333,7 +363,9 @@ void App::updatePlayback()
             clearCurrentPlaylist();
             showPresetName();
 
-            Serial.println(F("Playlist finished"));
+            if (SoftwareConfig::DEBUG) {
+                Serial.println(F("Playlist finished"));
+            }
             return;
         }
 
@@ -347,17 +379,21 @@ void App::updatePlayback()
     {
         showCurrentTrack();
 
-        Serial.print(F("Next track -> "));
-        Serial.println(
-            _currentPlaylist.tracks[_currentPlaylistIndex]
-        );
+        if (SoftwareConfig::DEBUG) {
+            Serial.print(F("Next track -> "));
+            Serial.println(
+                _currentPlaylist.tracks[_currentPlaylistIndex]
+            );
+        }
     } else {
         _playing = false;
         _currentButton = ButtonLayout::Coord{};
 
         showPresetName();
 
-        Serial.println(F("Failed to start next track"));
+        if (SoftwareConfig::DEBUG) {
+            Serial.println(F("Failed to start next track"));
+        }
     }
 }
 
@@ -379,9 +415,7 @@ void App::restoreDisplay()
     }
 }
 
-void App::previewButton(
-    const ButtonLayout::Coord& button
-)
+void App::previewButton(const ButtonLayout::Coord& button)
 {
     if (!ButtonLayout::isValid(button)) {
         return;
@@ -419,7 +453,8 @@ void App::previewButton(
         buttonText,
         ""
     );
-
-    Serial.print(F("Preview: "));
-    Serial.println(previewPlaylist.titles[0]);
+    if (SoftwareConfig::DEBUG) {
+        Serial.print(F("Preview: "));
+        Serial.println(previewPlaylist.titles[0]);
+    }
 }

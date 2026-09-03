@@ -38,6 +38,7 @@ private:
     bool isCurrentButton(const ButtonLayout::Coord& button) const;
 
 private:
+    static constexpr uint32_t LONG_PRESS_MS = 1000; // defines time threshold for a long press event
 
     enum class DisplayState
     {

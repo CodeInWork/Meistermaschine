@@ -36,7 +36,6 @@ private:
 
     ButtonLayout::Coord _pressedButton;
     uint32_t _pressStartedMs;
-    bool _longPressTriggered;
 
     bool readRawState(uint16_t& state);
     ButtonLayout::Coord pinToCoord(uint8_t pin) const;

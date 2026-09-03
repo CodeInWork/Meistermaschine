@@ -1,5 +1,6 @@
 #include "TrackLibrary.h"
 #include "AudioPlayer.h"
+#include "SoftwareConfig.h"
 
 TrackLibrary::TrackLibrary()
     :   _initialized(false),
@@ -16,30 +17,40 @@ bool TrackLibrary::begin()
     digitalWrite(AudioPins::CARDCS, HIGH);
 
     if (!SD.begin(AudioPins::CARDCS)) {
-        Serial.println(F("SD failed, or not present"));
+        if (SoftwareConfig::DEBUG) {
+            Serial.println(F("SD failed, or not present"));
+        }
         return false;
     }
 
-    Serial.println(F("SD initialized"));
+    if (SoftwareConfig::DEBUG) {
+        Serial.println(F("SD initialized"));
+    }
 
     if (!findPreset()) {
-        Serial.println(F("No valid preset found"));
+        if (SoftwareConfig::DEBUG) {
+            Serial.println(F("No valid preset found"));
+        }
         return false;
     }
 
-    Serial.print(F("Preset directory: "));
-    Serial.println(_presetPath);
+    if (SoftwareConfig::DEBUG) {
+        Serial.print(F("Preset directory: "));
+        Serial.println(_presetPath);
 
-    Serial.print(F("Registry: "));
-    Serial.println(_registryPath);
+        Serial.print(F("Registry: "));
+        Serial.println(_registryPath);
 
-    Serial.print(F("Registry: "));
-    Serial.println(_registryPath);
+        Serial.print(F("Registry: "));
+        Serial.println(_registryPath);
+    }
 
     File registry = SD.open(_registryPath, FILE_READ);
 
     if (!registry) {
-        Serial.println(F("Failed to open registry"));
+        if (SoftwareConfig::DEBUG) {
+            Serial.println(F("Failed to open registry"));
+        }
         return false;
     }
 
@@ -47,7 +58,9 @@ bool TrackLibrary::begin()
 
     _initialized = true;
 
-    Serial.println(F("TrackLibrary ready"));
+    if (SoftwareConfig::DEBUG) {
+        Serial.println(F("TrackLibrary ready"));
+    }
     return true;
 }
 
@@ -128,7 +141,9 @@ bool TrackLibrary::loadPlaylist(
     File registry = SD.open(_registryPath, FILE_READ);
 
     if (!registry) {
-        Serial.println(F("Failed to open registry"));
+        if (SoftwareConfig::DEBUG) {
+            Serial.println(F("Failed to open registry"));
+        }
         return false;
     }
 
@@ -161,11 +176,13 @@ bool TrackLibrary::loadPlaylist(
                         requestedButton
                     )
                 ) {
-                    Serial.print(F("Matched button ["));
-                    Serial.print(parsedButton.column);
-                    Serial.print(F("]["));
-                    Serial.print(parsedButton.row);
-                    Serial.println(F("]"));
+                    if (SoftwareConfig::DEBUG) {
+                        Serial.print(F("Matched button ["));
+                        Serial.print(parsedButton.column);
+                        Serial.print(F("]["));
+                        Serial.print(parsedButton.row);
+                        Serial.println(F("]"));
+                    }
 
                     if (playlist.trackCount < MAX_PLAYLIST_TRACKS) {
                         char* trackPath =
@@ -178,16 +195,18 @@ bool TrackLibrary::loadPlaylist(
                                 sizeof(playlist.tracks[playlist.trackCount])
                             )
                         ) {
-                            Serial.print(F("Constructed track path: "));
-                            Serial.println(trackPath);
-
-                            if (!SD.exists(trackPath)) {
-                                Serial.print(F("Track file not found: "));
+                            if (SoftwareConfig::DEBUG) {
+                                Serial.print(F("Constructed track path: "));
                                 Serial.println(trackPath);
-                            } else {
-                                Serial.println(F("Track file exists"));
+
+                                if (!SD.exists(trackPath)) {
+                                    Serial.print(F("Track file not found: "));
+                                    Serial.println(trackPath);
+                                } else {
+                                    Serial.println(F("Track file exists"));
+                                }
                             }
-                            
+
                             strncpy(
                                 playlist.titles[playlist.trackCount],
                                 title,
@@ -199,13 +218,17 @@ bool TrackLibrary::loadPlaylist(
 
                             ++playlist.trackCount;
                         } else {
-                            Serial.print(F("Could not build track path for: "));
-                            Serial.println(fileName);
+                            if (SoftwareConfig::DEBUG) {
+                                Serial.print(F("Could not build track path for: "));
+                                Serial.println(fileName);
+                            }
                         }
                     } else {
-                        Serial.println(
-                            F("Playlist full, additional tracks ignored")
-                        );
+                        if (SoftwareConfig::DEBUG) {
+                            Serial.println(
+                                F("Playlist full, additional tracks ignored")
+                            );
+                        }
                     }
                 }
 
@@ -242,11 +265,13 @@ bool TrackLibrary::loadPlaylist(
                 requestedButton
         )
 ) {
-    Serial.print(F("Matched button ["));
-    Serial.print(parsedButton.column);
-    Serial.print(F("]["));
-    Serial.print(parsedButton.row);
-    Serial.println(F("]"));
+    if (SoftwareConfig::DEBUG) {
+        Serial.print(F("Matched button ["));
+        Serial.print(parsedButton.column);
+        Serial.print(F("]["));
+        Serial.print(parsedButton.row);
+        Serial.println(F("]"));
+    }    
 
     if (playlist.trackCount < MAX_PLAYLIST_TRACKS) {
         if (
@@ -256,20 +281,24 @@ bool TrackLibrary::loadPlaylist(
                 sizeof(playlist.tracks[playlist.trackCount])
             )
         ) {
-            Serial.print(F("Track path: "));
-            Serial.println(
-                playlist.tracks[playlist.trackCount]
-            );
+            if (SoftwareConfig::DEBUG) {
+                Serial.print(F("Track path: "));
+                Serial.println(playlist.tracks[playlist.trackCount]);
+            }
 
             ++playlist.trackCount;
         } else {
-            Serial.print(F("Track path too long: "));
-            Serial.println(fileName);
+            if (SoftwareConfig::DEBUG) {
+                Serial.print(F("Track path too long: "));
+                Serial.println(fileName);
+            }
         }
     } else {
-        Serial.println(
-            F("Playlist full, additional tracks ignored")
-        );
+        if (SoftwareConfig::DEBUG) {
+            Serial.println(
+                F("Playlist full, additional tracks ignored")
+            );
+        }
     }
 }
     }
@@ -448,7 +477,9 @@ bool TrackLibrary::findPreset()
     File root = SD.open("/");
 
     if (!root) {
-        Serial.println(F("Failed to open SD root"));
+        if (SoftwareConfig::DEBUG) {
+            Serial.println(F("Failed to open SD root"));
+        }
         return false;
     }
 
@@ -466,8 +497,10 @@ bool TrackLibrary::findPreset()
 
         const char* directoryName = directory.name();
 
-        Serial.print(F("Checking directory: "));
-        Serial.println(directoryName);
+        if (SoftwareConfig::DEBUG) {
+            Serial.print(F("Checking directory: "));
+            Serial.println(directoryName);
+        }
 
         while (true) {
             File entry = directory.openNextFile();
@@ -476,8 +509,10 @@ bool TrackLibrary::findPreset()
                 break;
             }
 
-            Serial.print(F("  Entry: "));
-            Serial.println(entry.name());
+            if (SoftwareConfig::DEBUG) {
+                Serial.print(F("  Entry: "));
+                Serial.println(entry.name());
+            }
 
             if (
                 !entry.isDirectory() &&
@@ -490,7 +525,9 @@ bool TrackLibrary::findPreset()
                     presetNameLength >
                     MAX_PRESET_NAME_CHARS
                 ) {
-                    Serial.println(F("Preset name too long"));
+                    if (SoftwareConfig::DEBUG) {
+                        Serial.println(F("Preset name too long"));
+                    }
 
                     entry.close();
                     directory.close();
@@ -533,7 +570,9 @@ bool TrackLibrary::findPreset()
                     static_cast<size_t>(presetWritten) >=
                         sizeof(_presetPath)
                 ) {
-                    Serial.println(F("Preset path too long"));
+                    if (SoftwareConfig::DEBUG) {
+                        Serial.println(F("Preset path too long"));
+                    }
                     return false;
                 }
 
@@ -542,16 +581,20 @@ bool TrackLibrary::findPreset()
                     static_cast<size_t>(registryWritten) >=
                         sizeof(_registryPath)
                 ) {
-                    Serial.println(F("Registry path too long"));
+                    if (SoftwareConfig::DEBUG) {
+                        Serial.println(F("Registry path too long"));
+                    }
                     return false;
                 }
 
-                Serial.print(F("Selected preset: "));
-                Serial.println(_presetName);
+                if (SoftwareConfig::DEBUG) {
+                    Serial.print(F("Selected preset: "));
+                    Serial.println(_presetName);
 
-                Serial.print(F("Registry path: "));
-                Serial.println(_registryPath);
-
+                    Serial.print(F("Registry path: "));
+                    Serial.println(_registryPath);
+                }
+                
                 return true;
             }
 
@@ -563,6 +606,8 @@ bool TrackLibrary::findPreset()
 
     root.close();
 
-    Serial.println(F("No preset directory with MMS file found"));
+    if (SoftwareConfig::DEBUG) {
+        Serial.println(F("No preset directory with MMS file found"));
+    }
     return false;
 }

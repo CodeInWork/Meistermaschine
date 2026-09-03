@@ -11,8 +11,7 @@ MCP23017Buttons::MCP23017Buttons(
       _lastPollMs(0),
       _lastChangeMs(0),
       _pressedButton(),
-      _pressStartedMs(0),
-      _longPressTriggered(false)
+      _pressStartedMs(0)
 {
 }
 
@@ -113,13 +112,6 @@ ButtonEvents MCP23017Buttons::update()
 
     /*
      * A raw state change restarts the debounce period.
-     *
-     * Example:
-     *   first read:  button appears pressed
-     *   next read:   button bounces back to released
-     *
-     * Each change updates _lastChangeMs. The state must remain unchanged
-     * for DEBOUNCE_MS before it becomes the stable state.
      */
     if (newRawState != _rawState16) {
         _rawState16 = newRawState;
@@ -128,16 +120,15 @@ ButtonEvents MCP23017Buttons::update()
         return events;
     }
 
-    // The raw state has not yet remained unchanged long enough.
+    /*
+     * The raw state has not remained unchanged long enough yet.
+     */
     if ((now - _lastChangeMs) < DEBOUNCE_MS) {
         return events;
     }
 
     /*
-     * The raw state is now stable.
-     *
-     * If it differs from the previous stable state, determine which
-     * buttons were pressed and released.
+     * A new stable state has been reached.
      */
     if (_stableState16 != _rawState16) {
         const uint16_t oldStableState = _stableState16;
@@ -162,52 +153,50 @@ ButtonEvents MCP23017Buttons::update()
                 continue;
             }
 
+            /*
+             * A press is only needed internally to start timing.
+             */
             if ((pressedPins & pinBit) != 0) {
-                events.pressed = pinToCoord(pin);
-
-                _pressedButton = events.pressed;
+                _pressedButton = pinToCoord(pin);
                 _pressStartedMs = now;
-                _longPressTriggered = false;
+
+                events.held = _pressedButton;
+                events.pressDurationMs = 0;
             }
 
+            /*
+             * On release, report the completed press and its duration.
+             */
             if ((releasedPins & pinBit) != 0) {
-                events.released = pinToCoord(pin);
-            }
+                const ButtonLayout::Coord releasedButton =
+                    pinToCoord(pin);
 
-            if ((_stableState16 & pinBit) != 0) {
-                events.current = pinToCoord(pin);
-            }
-        }
+                events.released = releasedButton;
 
-        if (
-            ButtonLayout::isValid(events.released) &&
-            events.released.column == _pressedButton.column &&
-            events.released.row == _pressedButton.row
-        ) {
-            _pressedButton = ButtonLayout::Coord{};
-            _longPressTriggered = false;
+                if (
+                    ButtonLayout::isValid(_pressedButton) &&
+                    releasedButton.column == _pressedButton.column &&
+                    releasedButton.row == _pressedButton.row
+                ) {
+                    events.pressDurationMs =
+                        now - _pressStartedMs;
+
+                    _pressedButton = ButtonLayout::Coord{};
+                }
+            }
         }
 
         return events;
     }
 
     /*
-     * No new press or release occurred, but a button may still be held.
-     *
-     * This means events.held is returned repeatedly while the button
-     * remains stably pressed.
+     * No press/release transition occurred.
+     * Report the button that is still being held.
      */
-    for (uint8_t pin = 0; pin < 16; ++pin) {
-        const uint16_t pinBit =
-            static_cast<uint16_t>(1U << pin);
-
-        if ((ENABLED_PIN_MASK & pinBit) == 0) {
-            continue;
-        }
-
-        if ((_stableState16 & pinBit) != 0) {
-            events.current = pinToCoord(pin);
-        }
+    if (ButtonLayout::isValid(_pressedButton)) {
+        events.held = _pressedButton;
+        events.pressDurationMs =
+            now - _pressStartedMs;
     }
 
     return events;

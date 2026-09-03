@@ -1,4 +1,5 @@
 #include "AudioPlayer.h"
+#include "SoftwareConfig.h"
 
 AudioPlayer::AudioPlayer()
     : _player(AudioPins::RESET,
@@ -21,11 +22,15 @@ bool AudioPlayer::begin()
     digitalWrite(AudioPins::CARDCS, HIGH);
 
     if (!_player.begin()) {
-        Serial.println(F("VS1053 not found"));
+        if (SoftwareConfig::DEBUG) {
+            Serial.println(F("VS1053 not found"));
+        }
         return false;
     }
 
-    Serial.println(F("VS1053 found"));
+    if (SoftwareConfig::DEBUG) {
+        Serial.println(F("VS1053 found"));
+    }
     _player.setVolume(_currentVolume, _currentVolume);
 
     return true;
@@ -51,8 +56,11 @@ bool AudioPlayer::playFile(const char* fileName)
 
     _player.stopPlaying();
 
-    Serial.print(F("Playing: "));
-    Serial.println(fileName);
+    if (SoftwareConfig::DEBUG) {
+        Serial.print(F("Playing: "));
+        Serial.println(fileName);
+    }
+
 
     return _player.startPlayingFile(fileName);
 }
