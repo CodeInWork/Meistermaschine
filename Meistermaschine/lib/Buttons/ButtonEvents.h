@@ -9,6 +9,7 @@ struct ButtonEvents
     ButtonLayout::Coord pressed;
     ButtonLayout::Coord released;
     ButtonLayout::Coord current;
+    ButtonLayout::Coord longPressed;
 };
 
 #endif

@@ -34,6 +34,24 @@ namespace ButtonLayout
         return button.column < COLUMN_COUNT && button.row < ROW_COUNT;
     }
 
+    // looping property
+    struct GroupConfig
+    {
+        bool loop;
+    };
+
+    static constexpr GroupConfig GROUP_CONFIGS[COLUMN_COUNT] = {
+        { true },   // Music
+        { true },   // Setting
+        { true },   // Weather
+        { false }   // Special
+    };
+
+    constexpr bool loops(const Coord& button) noexcept
+    {
+        return isValid(button) && GROUP_CONFIGS[button.column].loop;
+    }
+
     constexpr ButtonId toButtonId(uint8_t column, uint8_t row) noexcept
     {
         return static_cast<ButtonId>(column * ROW_COUNT + row);

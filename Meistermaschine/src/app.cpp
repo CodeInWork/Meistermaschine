@@ -14,6 +14,7 @@ App::App()
       _currentButton(),
       _currentVolume(20),
       _playing(false),
+      _previewActive(false),
       _currentPlaylist(),
       _currentPlaylistIndex(0)
 {
@@ -107,10 +108,19 @@ void App::update(uint32_t now)
         combinedEvents.current = events2.current;
     }
 
+    if (ButtonLayout::isValid(events1.longPressed)) {
+        combinedEvents.longPressed = events1.longPressed;
+    }
+
+    if (ButtonLayout::isValid(events2.longPressed)) {
+        combinedEvents.longPressed = events2.longPressed;
+    }
+
     const bool hasButtonEvent =
         ButtonLayout::isValid(combinedEvents.pressed) ||
         ButtonLayout::isValid(combinedEvents.released) ||
-        ButtonLayout::isValid(combinedEvents.current);
+        ButtonLayout::isValid(combinedEvents.current) ||
+        ButtonLayout::isValid(combinedEvents.longPressed);
 
     if (hasButtonEvent) {
         handleButtonEvents(combinedEvents);
@@ -140,6 +150,10 @@ void App::showPresetName()
 
 void App::showCurrentTrack()
 {
+    if (_previewActive) {
+        return;
+    }
+    
     if (
         !_playing ||
         !ButtonLayout::isValid(_currentButton) ||
@@ -310,14 +324,27 @@ void App::updatePlayback()
     ++_currentPlaylistIndex;
 
     if (_currentPlaylistIndex >= _currentPlaylist.trackCount) {
+        // Non-looping group: playback is finished.
+        if (!ButtonLayout::loops(_currentButton)) {
+            _playing = false;
+            _currentButton = ButtonLayout::Coord();
+            _currentPlaylistIndex = 0;
+
+            clearCurrentPlaylist();
+            showPresetName();
+
+            Serial.println(F("Playlist finished"));
+            return;
+        }
+
+        // Looping group: restart playlist.
         _currentPlaylistIndex = 0;
     }
 
-    if (
-        _audioPlayer.playFile(
-            _currentPlaylist.tracks[_currentPlaylistIndex]
-        )
-    ) {
+
+
+    if (_audioPlayer.playFile(_currentPlaylist.tracks[_currentPlaylistIndex])) 
+    {
         showCurrentTrack();
 
         Serial.print(F("Next track -> "));
@@ -337,4 +364,62 @@ void App::updatePlayback()
 void App::clearCurrentPlaylist()
 {
     _currentPlaylist = TrackLibrary::Playlist{};
+}
+
+void App::restoreDisplay()
+{
+    if (
+        _playing &&
+        ButtonLayout::isValid(_currentButton) &&
+        _currentPlaylistIndex < _currentPlaylist.trackCount
+    ) {
+        showCurrentTrack();
+    } else {
+        showPresetName();
+    }
+}
+
+void App::previewButton(
+    const ButtonLayout::Coord& button
+)
+{
+    if (!ButtonLayout::isValid(button)) {
+        return;
+    }
+
+    TrackLibrary::Playlist previewPlaylist;
+
+    if (
+        !_trackLibrary.loadPlaylist(
+            button,
+            previewPlaylist
+        )
+    ) {
+        return;
+    }
+
+    if (previewPlaylist.trackCount == 0) {
+        return;
+    }
+
+    char buttonText[8];
+
+    snprintf(
+        buttonText,
+        sizeof(buttonText),
+        "BTN %u,%u",
+        button.column + 1,
+        button.row + 1
+    );
+
+    _previewActive = true;
+
+    _display.showLayout(
+        previewPlaylist.titles[0],
+        buttonText,
+        ""
+    );
+
+    Serial.print(F("Preview: "));
+    Serial.println(previewPlaylist.titles[0]);
 }

@@ -28,8 +28,10 @@ private:
 
     void showPresetName();
     void showCurrentTrack();
+    void restoreDisplay();
     void clearCurrentPlaylist();
 
+    void previewButton(const ButtonLayout::Coord& button);
     void requestButton(const ButtonLayout::Coord& button);
 
     bool hasActiveButton() const;
@@ -60,6 +62,7 @@ private:
     ButtonLayout::Coord _currentButton;
     uint8_t _currentVolume;
     bool _playing;
+    bool _previewActive;
 
     TrackLibrary::Playlist _currentPlaylist;
     uint8_t _currentPlaylistIndex;

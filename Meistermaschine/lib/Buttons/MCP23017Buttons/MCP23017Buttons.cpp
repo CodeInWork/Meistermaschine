@@ -9,7 +9,10 @@ MCP23017Buttons::MCP23017Buttons(
       _rawState16(0),
       _stableState16(0),
       _lastPollMs(0),
-      _lastChangeMs(0)
+      _lastChangeMs(0),
+      _pressedButton(),
+      _pressStartedMs(0),
+      _longPressTriggered(false)
 {
 }
 
@@ -161,6 +164,10 @@ ButtonEvents MCP23017Buttons::update()
 
             if ((pressedPins & pinBit) != 0) {
                 events.pressed = pinToCoord(pin);
+
+                _pressedButton = events.pressed;
+                _pressStartedMs = now;
+                _longPressTriggered = false;
             }
 
             if ((releasedPins & pinBit) != 0) {
@@ -170,6 +177,15 @@ ButtonEvents MCP23017Buttons::update()
             if ((_stableState16 & pinBit) != 0) {
                 events.current = pinToCoord(pin);
             }
+        }
+
+        if (
+            ButtonLayout::isValid(events.released) &&
+            events.released.column == _pressedButton.column &&
+            events.released.row == _pressedButton.row
+        ) {
+            _pressedButton = ButtonLayout::Coord{};
+            _longPressTriggered = false;
         }
 
         return events;
