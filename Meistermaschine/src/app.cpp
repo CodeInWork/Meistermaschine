@@ -17,7 +17,10 @@ App::App()
       _playing(false),
       _previewActive(false),
       _currentPlaylist(),
-      _currentPlaylistIndex(0)
+      _currentPlaylistIndex(0),
+      _pendingClickButton(),
+      _pendingClickTimeMs(0),
+      _clickPending(false)
 {
 }
 
@@ -112,8 +115,10 @@ void App::update(uint32_t now)
         ButtonLayout::isValid(combinedEvents.released);
 
     if (hasButtonEvent) {
-        handleButtonEvents(combinedEvents);
+        handleButtonEvents(combinedEvents, now);
     }
+
+    updatePendingClick(now);
 
     updateVolume();
     updatePlayback();
@@ -170,12 +175,12 @@ void App::showCurrentTrack()
     );
 }
 
-void App::handleButtonEvents(const ButtonEvents& events)
+void App::handleButtonEvents(
+    const ButtonEvents& events,
+    uint32_t now
+)
 {
-    /*
-     * A button is being held.
-     * Once the long-press threshold is reached, show its preview.
-     */
+    // Long press / preview
     if (
         ButtonLayout::isValid(events.held) &&
         events.pressDurationMs >= LONG_PRESS_MS &&
@@ -185,36 +190,43 @@ void App::handleButtonEvents(const ButtonEvents& events)
         return;
     }
 
-    /*
-     * A button was released.
-     */
-    if (ButtonLayout::isValid(events.released)) {
-
-        if (SoftwareConfig::DEBUG) {
-            Serial.print(F("Released: column "));
-            Serial.print(events.released.column);
-            Serial.print(F(", row "));
-            Serial.print(events.released.row);
-            Serial.print(F(", duration "));
-            Serial.print(events.pressDurationMs);
-            Serial.println(F(" ms"));
-        }
-
-        /*
-         * If a preview was active, the release only ends the preview.
-         * It must not activate the button.
-         */
-        if (_previewActive) {
-            _previewActive = false;
-            restoreDisplay();
-            return;
-        }
-
-        /*
-         * Otherwise this was a normal short press.
-         */
-        requestButton(events.released);
+    if (!ButtonLayout::isValid(events.released)) {
+        return;
     }
+
+    // Releasing a long press only closes the preview.
+    if (_previewActive) {
+        _previewActive = false;
+        restoreDisplay();
+        return;
+    }
+
+    /*
+     * Second short click on the same button:
+     * this is a double click.
+     */
+    if (
+        _clickPending &&
+        isSameButton(
+            events.released,
+            _pendingClickButton
+        ) &&
+        (now - _pendingClickTimeMs) <= DOUBLE_CLICK_MS
+    ) {
+        _clickPending = false;
+        _pendingClickButton = ButtonLayout::Coord{};
+
+        handleDoubleClick(events.released);
+        return;
+    }
+
+    /*
+     * First short click.
+     * Do not execute it yet because a second click may follow.
+     */
+    _pendingClickButton = events.released;
+    _pendingClickTimeMs = now;
+    _clickPending = true;
 }
 
 bool App::hasActiveButton() const
@@ -348,50 +360,11 @@ void App::updatePlayback()
         return;
     }
 
-    ++_currentPlaylistIndex;
-
-    if (_currentPlaylistIndex >= _currentPlaylist.trackCount) {
-        // Non-looping group: playback is finished.
-        if (!ButtonLayout::loops(_currentButton)) {
-            _playing = false;
-            _currentButton = ButtonLayout::Coord();
-            _currentPlaylistIndex = 0;
-
-            clearCurrentPlaylist();
-            showPresetName();
-
-            if (SoftwareConfig::DEBUG) {
-                Serial.println(F("Playlist finished"));
-            }
-            return;
-        }
-
-        // Looping group: restart playlist.
-        _currentPlaylistIndex = 0;
+    if (playNextTrack()) {
+        return;
     }
 
-
-
-    if (_audioPlayer.playFile(_currentPlaylist.tracks[_currentPlaylistIndex])) 
-    {
-        showCurrentTrack();
-
-        if (SoftwareConfig::DEBUG) {
-            Serial.print(F("Next track -> "));
-            Serial.println(
-                _currentPlaylist.tracks[_currentPlaylistIndex]
-            );
-        }
-    } else {
-        _playing = false;
-        _currentButton = ButtonLayout::Coord{};
-
-        showPresetName();
-
-        if (SoftwareConfig::DEBUG) {
-            Serial.println(F("Failed to start next track"));
-        }
-    }
+    finishPlayback();
 }
 
 void App::clearCurrentPlaylist()
@@ -453,5 +426,103 @@ void App::previewButton(const ButtonLayout::Coord& button)
     if (SoftwareConfig::DEBUG) {
         Serial.print(F("Preview: "));
         Serial.println(previewPlaylist.titles[0]);
+    }
+}
+
+bool App::playNextTrack()
+{
+    if (!_playing || _currentPlaylist.trackCount == 0) {
+        return false;
+    }
+
+    ++_currentPlaylistIndex;
+
+    if (_currentPlaylistIndex >= _currentPlaylist.trackCount) {
+        if (!ButtonLayout::loops(_currentButton)) {
+            return false;
+        }
+
+        _currentPlaylistIndex = 0;
+    }
+
+    if (!_audioPlayer.playFile(
+        _currentPlaylist.tracks[_currentPlaylistIndex]
+    )) {
+        return false;
+    }
+
+    showCurrentTrack();
+
+    if (SoftwareConfig::DEBUG) {
+        Serial.print(F("Next track -> "));
+        Serial.println(
+            _currentPlaylist.tracks[_currentPlaylistIndex]
+        );
+    }
+
+    return true;
+}
+
+bool App::isSameButton(
+    const ButtonLayout::Coord& a,
+    const ButtonLayout::Coord& b
+) const
+{
+    return
+        ButtonLayout::isValid(a) &&
+        ButtonLayout::isValid(b) &&
+        a.column == b.column &&
+        a.row == b.row;
+}
+
+void App::updatePendingClick(uint32_t now)
+{
+    if (!_clickPending) {
+        return;
+    }
+
+    if ((now - _pendingClickTimeMs) <= DOUBLE_CLICK_MS) {
+        return;
+    }
+
+    const ButtonLayout::Coord button =
+        _pendingClickButton;
+
+    _clickPending = false;
+    _pendingClickButton = ButtonLayout::Coord{};
+
+    requestButton(button);
+}
+
+void App::handleDoubleClick(
+    const ButtonLayout::Coord& button
+)
+{
+    if (
+        !_playing ||
+        !isCurrentButton(button)
+    ) {
+        requestButton(button);
+        return;
+    }
+
+    _audioPlayer.stop();
+
+    if (!playNextTrack()) {
+        finishPlayback();
+    }
+}
+
+void App::finishPlayback()
+{
+    _playing = false;
+    _currentButton = ButtonLayout::Coord{};
+    _currentPlaylistIndex = 0;
+
+    clearCurrentPlaylist();
+    showPresetName();
+
+    if (SoftwareConfig::DEBUG) {
+        Serial.println(F("Playlist finished"));
     }
 }

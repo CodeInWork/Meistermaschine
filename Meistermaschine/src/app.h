@@ -21,7 +21,7 @@ public:
     void update(uint32_t now);
 
 private:
-    void handleButtonEvents(const ButtonEvents& events);
+    void handleButtonEvents(const ButtonEvents& events, uint32_t now);
     void updateVolume();
     void updatePlayback();
     void updateDisplay(uint32_t now);
@@ -34,8 +34,15 @@ private:
     void previewButton(const ButtonLayout::Coord& button);
     void requestButton(const ButtonLayout::Coord& button);
 
+    void updatePendingClick(uint32_t now);
+    void handleDoubleClick(const ButtonLayout::Coord& button);
+
     bool hasActiveButton() const;
     bool isCurrentButton(const ButtonLayout::Coord& button) const;
+
+    bool playNextTrack();
+    void finishPlayback();
+    bool isSameButton(const ButtonLayout::Coord& first, const ButtonLayout::Coord& second) const;
 
 private:
     static constexpr uint32_t LONG_PRESS_MS = 1000; // defines time threshold for a long press event
@@ -67,6 +74,13 @@ private:
 
     TrackLibrary::Playlist _currentPlaylist;
     uint8_t _currentPlaylistIndex;
+
+    // double click detection
+    static constexpr uint32_t DOUBLE_CLICK_MS = 300;
+
+    ButtonLayout::Coord _pendingClickButton;
+    uint32_t _pendingClickTimeMs;
+    bool _clickPending;
 };
 
 #endif
