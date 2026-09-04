@@ -85,9 +85,6 @@ void App::update(uint32_t now)
     const ButtonEvents events1 = _buttons1.update();
     const ButtonEvents events2 = _buttons2.update();
 
-    const ButtonEvents events1 = _buttons1.update();
-    const ButtonEvents events2 = _buttons2.update();
-
     ButtonEvents combinedEvents{};
 
     if (ButtonLayout::isValid(events1.held)) {
@@ -161,7 +158,7 @@ void App::showCurrentTrack()
     snprintf(
         buttonText,
         sizeof(buttonText),
-        "BTN %u,%u",
+        "C%u,R%u",
         _currentButton.column+1,
         _currentButton.row+1
     );
@@ -441,7 +438,7 @@ void App::previewButton(const ButtonLayout::Coord& button)
     snprintf(
         buttonText,
         sizeof(buttonText),
-        "BTN %u,%u",
+        "C%u,R%u",
         button.column + 1,
         button.row + 1
     );

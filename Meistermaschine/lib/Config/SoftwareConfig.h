@@ -3,7 +3,7 @@
 
 namespace SoftwareConfig
 {
-constexpr bool DEBUG = true;
-} // namespace SoftwareConfig
+constexpr bool DEBUG = false;
+} 
 
 #endif // SOFTWARE_CONFIG_H
