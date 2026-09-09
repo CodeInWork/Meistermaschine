@@ -160,13 +160,7 @@ void App::showCurrentTrack()
 
     char buttonText[8];
 
-    snprintf(
-        buttonText,
-        sizeof(buttonText),
-        "C%u,R%u",
-        _currentButton.column+1,
-        _currentButton.row+1
-    );
+    setButtonText(buttonText, sizeof(buttonText), _currentButton);
 
     _display.showLayout(
         _currentPlaylist.titles[_currentPlaylistIndex],
@@ -408,13 +402,7 @@ void App::previewButton(const ButtonLayout::Coord& button)
 
     char buttonText[8];
 
-    snprintf(
-        buttonText,
-        sizeof(buttonText),
-        "C%u,R%u",
-        button.column + 1,
-        button.row + 1
-    );
+    setButtonText(buttonText, sizeof(buttonText), button);
 
     _previewActive = true;
 
@@ -525,4 +513,15 @@ void App::finishPlayback()
     if (SoftwareConfig::DEBUG) {
         Serial.println(F("Playlist finished"));
     }
+}
+
+void App::setButtonText(char* buttonText, const size_t buttonTextSize, const ButtonLayout::Coord& button) const
+{
+    snprintf(
+        buttonText,
+        buttonTextSize,
+        "C%u,R%u",
+        button.column + 1,
+        button.row + 1
+    );
 }

@@ -44,6 +44,8 @@ private:
     void finishPlayback();
     bool isSameButton(const ButtonLayout::Coord& first, const ButtonLayout::Coord& second) const;
 
+    void setButtonText(char* buttonText, const size_t buttonTextSize, const ButtonLayout::Coord& button) const;
+
 private:
     static constexpr uint32_t LONG_PRESS_MS = 1000; // defines time threshold for a long press event
 

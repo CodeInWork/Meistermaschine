@@ -44,6 +44,7 @@ const char* DisplayService::extractTitle(const char* path) const
     return fileName;
 }
 
+
 void DisplayService::showLayout(
     const char* top,
     const char* bottomLeft,
