@@ -520,8 +520,8 @@ void App::setButtonText(char* buttonText, const size_t buttonTextSize, const But
     snprintf(
         buttonText,
         buttonTextSize,
-        "C%u,R%u",
-        button.column + 1,
+        "%c%u",
+        'A' + button.column,
         button.row + 1
     );
 }
