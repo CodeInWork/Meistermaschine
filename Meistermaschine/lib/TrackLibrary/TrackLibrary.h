@@ -9,7 +9,7 @@
 class TrackLibrary
 {
 public:
-    static constexpr uint8_t MAX_PLAYLIST_TRACKS = 12;
+    static constexpr uint8_t MAX_PLAYLIST_TRACKS = 16;
     static constexpr uint8_t COORD_LEN = 2;
 
     // Preset name shown on display
