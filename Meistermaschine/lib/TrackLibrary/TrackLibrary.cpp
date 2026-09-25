@@ -1,6 +1,7 @@
 #include "TrackLibrary.h"
 #include "AudioPlayer.h"
 #include "SoftwareConfig.h"
+#include "ButtonUtils.h" // default loop states -> move to SoftwareConfig.h
 
 TrackLibrary::TrackLibrary()
     :   _initialized(false),
@@ -55,6 +56,9 @@ bool TrackLibrary::begin()
     }
 
     registry.close();
+
+    
+    loadMetadata();
 
     _initialized = true;
 
@@ -157,6 +161,12 @@ bool TrackLibrary::loadPlaylist(
         if (c == '\n' || c == '\r') {
             if (linePos > 0) {
                 line[linePos] = '\0';
+
+                // Track data ends here.
+                // Metadata is loaded separately during begin().
+                if (strcmp(line, "#META") == 0) {
+                    break;
+                }
 
                 ButtonLayout::Coord parsedButton;
                 char fileName[MAX_FILENAME_LEN] = {0};
@@ -610,4 +620,119 @@ bool TrackLibrary::findPreset()
         Serial.println(F("No preset directory with MMS file found"));
     }
     return false;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////
+// loop cnfiguration routines
+///////////////////////////////////////////////////////////////////////////////////////
+
+// Reset the loop configuration to the default values defined in ButtonUtils.h
+void TrackLibrary::resetLoopConfig()
+{
+    for (uint8_t i = 0; i < ButtonLayout::COLUMN_COUNT; ++i) {
+        _loopConfig[i] = SoftwareConfig::DEFAULT_LOOP_CONFIG[i];
+    }
+}
+
+bool TrackLibrary::loops(
+    const ButtonLayout::Coord& button
+) const
+{
+    return ButtonLayout::isValid(button) &&
+           _loopConfig[button.column];
+}
+
+void TrackLibrary::loadMetadata()
+{
+    // Always start with the firmware defaults.
+    resetLoopConfig();
+
+    File registry = SD.open(_registryPath, FILE_READ);
+
+    if (!registry) {
+        if (SoftwareConfig::DEBUG) {
+            Serial.println(F("Failed to open registry for metadata"));
+        }
+        return;
+    }
+
+    char line[MAX_LINE_LEN] = {0};
+    uint8_t linePos = 0;
+    bool inMetadata = false;
+
+    while (registry.available()) {
+        const char c = static_cast<char>(registry.read());
+
+        if (c == '\n' || c == '\r') {
+            if (linePos == 0) {
+                continue;
+            }
+
+            line[linePos] = '\0';
+
+            if (!inMetadata) {
+                if (strcmp(line, "#META") == 0) {
+                    inMetadata = true;
+                }
+            } else {
+                if (strncmp(line, "loop=", 5) == 0) {
+                    int loopValues[ButtonLayout::COLUMN_COUNT];
+
+                    const int parsed = sscanf(
+                        line,
+                        "loop=%d,%d,%d,%d",
+                        &loopValues[0],
+                        &loopValues[1],
+                        &loopValues[2],
+                        &loopValues[3]
+                    );
+
+                    if (parsed == ButtonLayout::COLUMN_COUNT) {
+                        for (
+                            uint8_t i = 0;
+                            i < ButtonLayout::COLUMN_COUNT;
+                            ++i
+                        ) {
+                            _loopConfig[i] = loopValues[i] != 0;
+                        }
+
+                        if (SoftwareConfig::DEBUG) {
+                            Serial.print(F("Loop config: "));
+
+                            for (
+                                uint8_t i = 0;
+                                i < ButtonLayout::COLUMN_COUNT;
+                                ++i
+                            ) {
+                                Serial.print(_loopConfig[i] ? 1 : 0);
+
+                                if (i < ButtonLayout::COLUMN_COUNT - 1) {
+                                    Serial.print(',');
+                                }
+                            }
+
+                            Serial.println();
+                        }
+                    } else if (SoftwareConfig::DEBUG) {
+                        Serial.println(
+                            F("Invalid loop metadata - using defaults")
+                        );
+                    }
+
+                    // We found the only metadata currently needed.
+                    break;
+                }
+            }
+
+            linePos = 0;
+            continue;
+        }
+
+        if (linePos < MAX_LINE_LEN - 1) {
+            line[linePos++] = c;
+        }
+    }
+
+    registry.close();
 }

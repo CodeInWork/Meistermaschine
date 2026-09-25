@@ -69,6 +69,8 @@ public:
 
     const char* presetName() const;
 
+    bool loops(const ButtonLayout::Coord& button) const;
+
 private:
     bool hasMmsExtension(const char* fileName) const;
 
@@ -97,12 +99,17 @@ private:
 
     bool findPreset();
 
+    void loadMetadata();
+    void resetLoopConfig();
+
 private:
     bool _initialized;
 
     char _presetName[MAX_PRESET_NAME_LEN];
     char _presetPath[MAX_PRESET_PATH_LEN];  // "/" + name + '\0'
     char _registryPath[MAX_REGISTRY_PATH_LEN];
+
+    bool _loopConfig[ButtonLayout::COLUMN_COUNT];
 };
 
 #endif

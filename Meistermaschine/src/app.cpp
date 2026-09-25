@@ -426,7 +426,7 @@ bool App::playNextTrack()
     ++_currentPlaylistIndex;
 
     if (_currentPlaylistIndex >= _currentPlaylist.trackCount) {
-        if (!ButtonLayout::loops(_currentButton)) {
+        if (!_trackLibrary.loops(_currentButton)) {
             return false;
         }
 
